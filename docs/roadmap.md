@@ -5,7 +5,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | Sprint | Contenu | État |
 | --- | --- | --- |
 | 0 | Analyse, architecture, initialisation (frontend + backend + MongoDB Atlas + design tokens) | ✅ Terminé |
-| 1 | Authentification (register, vérification email, login, logout, refresh, reset, rôles) | À venir |
+| 1 | Authentification (register, vérification email, login, logout, refresh, reset, rôles) | ✅ Terminé |
 | 2 | Catégories (CRUD admin + arborescence + seed) | À venir |
 | 3 | Création d'activité (formulaire multi-étapes : infos → catégorie → services → contacts → horaires → localisation → photos) | À venir |
 | 4 | Profil public `/business/:slug` | À venir |
