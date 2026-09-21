@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import env from './env.js';
+import { logger } from '../utils/logger.js';
 
 const DB_STATES: Record<number, string> = {
   0: 'disconnected',
@@ -15,18 +16,18 @@ export interface DbState {
 
 export async function connectDatabase(): Promise<void> {
   if (!env.mongoUri) {
-    console.warn('[database] MONGODB_URI absent : démarrage sans base de données.');
+    logger.warn('MONGODB_URI absent : démarrage sans base de données.');
     return;
   }
 
   mongoose.connection.on('connected', () => {
-    console.log('[database] MongoDB Atlas connecté.');
+    logger.info('MongoDB connecté.');
   });
   mongoose.connection.on('error', (err) => {
-    console.error(`[database] Erreur MongoDB : ${err.message}`);
+    logger.error(`Erreur MongoDB : ${err.message}`);
   });
   mongoose.connection.on('disconnected', () => {
-    console.warn('[database] MongoDB déconnecté.');
+    logger.warn('MongoDB déconnecté.');
   });
 
   await mongoose.connect(env.mongoUri, { serverSelectionTimeoutMS: 10_000 });

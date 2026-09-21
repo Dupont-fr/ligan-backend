@@ -1,5 +1,5 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 import env from '../config/env.js';
 import type { AuthUser, UserRole } from '../models/User.js';
 
@@ -26,8 +26,8 @@ export function generateRefreshToken(): string {
   return randomBytes(48).toString('hex');
 }
 
-export function randomToken(): string {
-  return randomBytes(32).toString('hex');
+export function generateEmailCode(): string {
+  return randomInt(100000, 1000000).toString();
 }
 
 export function hashValue(value: string): string {

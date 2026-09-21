@@ -11,15 +11,19 @@ import {
   me,
   refresh,
   register,
+  resendCode,
   resetPassword,
-  verifyEmail,
+  verifyCode,
+  verifyResetCode,
 } from './controller.js';
 import {
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resendCodeSchema,
   resetPasswordSchema,
-  verifyEmailQuerySchema,
+  verifyCodeSchema,
+  verifyResetCodeSchema,
 } from './validator.js';
 
 const router = Router();
@@ -51,13 +55,23 @@ const passwordLimiter = rateLimit({
   handler: tooManyHandler,
 });
 
+const codeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: tooManyHandler,
+});
+
 router.post('/register', authLimiter, validate(registerSchema), register);
-router.get('/verify-email', validate(verifyEmailQuerySchema, 'query'), verifyEmail);
+router.post('/verify-code', codeLimiter, validate(verifyCodeSchema), verifyCode);
+router.post('/resend-code', codeLimiter, validate(resendCodeSchema), resendCode);
 router.post('/login', loginLimiter, validate(loginSchema), login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
 router.post('/forgot-password', passwordLimiter, validate(forgotPasswordSchema), forgotPassword);
+router.post('/verify-reset-code', codeLimiter, validate(verifyResetCodeSchema), verifyResetCode);
 router.post('/reset-password', passwordLimiter, validate(resetPasswordSchema), resetPassword);
 
 export default router;

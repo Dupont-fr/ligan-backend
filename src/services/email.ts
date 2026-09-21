@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import env from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 interface MailInput {
   to: string;
@@ -11,6 +12,8 @@ interface MailInput {
 
 const EMAIL_MAX_WIDTH = '600px';
 const BRAND_COLOR = '#4f46e5';
+const VERIFICATION_CODE_TTL_MINUTES = 15;
+const RESET_CODE_TTL_MINUTES = 15;
 
 function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; text: string } {
   const html = `<!DOCTYPE html>
@@ -71,21 +74,12 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
   return { html, text: bodyText };
 }
 
-function button(ctaText: string, ctaUrl: string): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0">
-  <tr>
-    <td align="center">
-      <a href="${ctaUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;border-radius:8px">${ctaText}</a>
-    </td>
-  </tr>
-</table>`;
-}
-
 async function send(input: MailInput): Promise<boolean> {
   const { user, pass } = env.email;
 
   if (env.email.disabled || !user || !pass) {
-    console.log(`\n[email] (DEV — aucun SMTP configuré) ${input.subject}\n      → ${input.to}\n      ${input.bodyText}\n`);
+    logger.info(`(DEV) Email « ${input.subject} » à destination de ${input.to}`);
+    console.log(`${input.bodyText}\n`);
     return false;
   }
 
@@ -111,46 +105,54 @@ async function send(input: MailInput): Promise<boolean> {
       html,
       text,
     });
-    console.log(`[email] envoyé à ${input.to} : ${input.subject}`);
+    logger.info(`Email envoyé à ${input.to} : ${input.subject}`);
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'erreur inconnue';
-    console.warn(`[email] échec d'envoi vers ${input.to} : ${message}`);
+    logger.error(`Échec d'envoi d'email à ${input.to} : ${message}`);
     return false;
   }
 }
 
-export async function sendVerificationEmail(to: string, url: string): Promise<boolean> {
+function codeBox(hexColor: string, code: string, hint: string): string {
+  const digits = code.split('');
+  const cells = digits
+    .map(
+      (digit) =>
+        `<span style="display:inline-block;min-width:40px;height:52px;line-height:52px;background-color:${hexColor};color:#ffffff;border-radius:8px;font-size:26px;font-weight:700;text-align:center;margin:0 4px">${digit}</span>`,
+    )
+    .join('');
+  return `
+    <div style="text-align:center;margin:24px 0 8px">${cells}</div>
+    <p style="margin:8px 0 0;text-align:center;font-size:12px;color:#94a3b8">${hint}</p>
+  `;
+}
+
+export async function sendVerificationEmail(to: string, code: string): Promise<boolean> {
   return send({
     to,
-    subject: `Vérifie ton adresse email — ${env.appName}`,
-    preheader: 'Confirme ta création de compte pour activer ton accès.',
+    subject: `Votre code de vérification — ${env.appName}`,
+    preheader: `Votre code de vérification : ${code}`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;font-weight:700">Bienvenue sur ${env.appName} !</h1>
-      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">${env.appName} vous connecte aux professionnels locaux, près de chez vous. Pour activer votre compte, cliquez sur le bouton ci-dessous&nbsp;:</p>
-      ${button('Vérifier mon adresse email', url)}
-      <p style="margin:0 0 8px;font-size:13px;color:#64748b">Ce lien est valable pendant <strong>24 heures</strong>.</p>
-      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">Si le bouton ne fonctionne pas, copiez&nbsp;:</p>
-      <p style="margin:0;font-size:12px;color:${BRAND_COLOR};word-break:break-all"><a href="${url}" target="_blank" style="color:${BRAND_COLOR}">${url}</a></p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">${env.appName} vous connecte aux professionnels locaux, près de chez vous. Pour activer votre compte, saisissez le code ci-dessous&nbsp;:</p>
+      ${codeBox(BRAND_COLOR, code, `Ce code est valable pendant ${Math.round(VERIFICATION_CODE_TTL_MINUTES)} minutes.`)}
     `,
-    bodyText: `Bienvenue sur ${env.appName} ! Pour activer votre compte, ouvrez ce lien : ${url}. Ce lien est valable 24 heures.`,
+    bodyText: `Bienvenue sur ${env.appName} ! Votre code de vérification est : ${code}. Il expire dans ${Math.round(VERIFICATION_CODE_TTL_MINUTES)} minutes.`,
   });
 }
 
-export async function sendResetPasswordEmail(to: string, url: string): Promise<boolean> {
+export async function sendResetPasswordEmail(to: string, code: string): Promise<boolean> {
   return send({
     to,
-    subject: `Réinitialisation de mot de passe — ${env.appName}`,
-    preheader: 'Un lien pour choisir un nouveau mot de passe.',
+    subject: `Votre code de réinitialisation — ${env.appName}`,
+    preheader: `Votre code de réinitialisation : ${code}`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;font-weight:700">Réinitialisation du mot de passe</h1>
-      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Vous avez demandé à changer votre mot de passe ${env.appName}. Cliquez sur le bouton ci-dessous pour le définir&nbsp;:</p>
-      ${button('Choisir un nouveau mot de passe', url)}
-      <p style="margin:0 0 8px;font-size:13px;color:#64748b">Ce lien est valable pendant <strong>1 heure</strong>.</p>
-      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.</p>
-      <p style="margin:12px 0 0;font-size:13px;color:#94a3b8;line-height:1.6">Si le bouton ne fonctionne pas, copiez&nbsp;:</p>
-      <p style="margin:0;font-size:12px;color:${BRAND_COLOR};word-break:break-all"><a href="${url}" target="_blank" style="color:${BRAND_COLOR}">${url}</a></p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Vous avez demandé à définir un nouveau mot de passe ${env.appName}. Saisissez le code ci-dessous sur le site&nbsp;:</p>
+      ${codeBox(BRAND_COLOR, code, `Ce code est valable pendant ${Math.round(RESET_CODE_TTL_MINUTES)} minutes.`)}
+      <p style="margin:12px 0 0;font-size:13px;color:#94a3b8;line-height:1.6">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.</p>
     `,
-    bodyText: `Réinitialisation de mot de passe ${env.appName} : ouvrez ce lien (valable 1 heure) : ${url}. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+    bodyText: `Réinitialisation de mot de passe ${env.appName} : votre code est ${code}. Il expire dans ${Math.round(RESET_CODE_TTL_MINUTES)} minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
   });
 }

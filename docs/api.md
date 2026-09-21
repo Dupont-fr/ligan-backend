@@ -31,14 +31,24 @@ Base : `/api/auth`. Cookies HttpOnly :
 
 ### `POST /api/auth/register`
 
-Crée un compte (CUSTOMER par défaut) et envoie un **email de vérification** (lien valable 24 h).
+Crée un compte (CUSTOMER par défaut) et envoie un **code de vérification à 6 chiffres**
+(cookie non défini — le compte n'est pas connecté).
 
 Body : `{ firstName, lastName, email, password, phone? }` → `201` + `data.user`.
-`409` si l'email existe déjà.
+`409` si l'email existe déjà. Code valable 15 min, hashé (SHA-256) en base.
 
-### `GET /api/auth/verify-email?token=...`
+### `POST /api/auth/verify-code`
 
-Valide l'email. `200` + `isVerified: true` ; `400` si jeton invalide/expiré (jeton à usage unique).
+Valide le code reçu par email, **définit immédiatement les cookies de session**
+(l'utilisateur est directement connecté) et passe `isVerified: true`.
+
+Body : `{ email, code }` (code : 6 chiffres). `200` (auto-login) ; `400` si code
+invalide/expiré. Après 5 tentatives incorrectes, le code est invalidé.
+
+### `POST /api/auth/resend-code`
+
+Renvole un nouveau code. Body : `{ email, purpose: "verify" | "reset" }`. Réponse
+neutre (`200`) pour éviter la fuite d'existence de compte. Rate limit dédié + compte à rebours côté front.
 
 ### `POST /api/auth/login`
 
@@ -59,12 +69,19 @@ Retourne l'utilisateur courant.
 
 ### `POST /api/auth/forgot-password`
 
-Body : `{ email }`. Réponse neutre (`200`) quel que soit l'existence du compte. Lien valable 1 h.
-Rate limit : 5 / 1 h.
+Body : `{ email }`. Réponse neutre (`200`) quel que soit l'existence du compte.
+Envoie un **code à 6 chiffres** (valable 15 min). Rate limit : 5 / 1 h.
+
+### `POST /api/auth/verify-reset-code`
+
+Valide le code de réinitialisation avant d'afficher le formulaire de nouveau mot de passe
+(étape UX). Body : `{ email, code }` → `200` ; `400` si code invalide/expiré ;
+invalidé après 5 tentatives incorrectes.
 
 ### `POST /api/auth/reset-password`
 
-Body : `{ token, password }`. Réinitialise le mot de passe et révoque toutes les sessions.
+Body : `{ email, code, password }`. Réinitialise le mot de passe, révoque
+toutes les sessions et efface les cookies.
 
 ---
 
