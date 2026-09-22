@@ -1,4 +1,3 @@
-import nodemailer from 'nodemailer';
 import env from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
@@ -75,36 +74,39 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
 }
 
 async function send(input: MailInput): Promise<boolean> {
-  const { user, pass } = env.email;
+  const { apiKey, user, from, fromName, disabled } = env.email;
 
-  if (env.email.disabled || !user || !pass) {
+  if (disabled || !apiKey) {
     logger.info(`(DEV) Email « ${input.subject} » à destination de ${input.to}`);
     console.log(`${input.bodyText}\n`);
     return false;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: env.email.host,
-    port: env.email.port,
-    secure: env.email.port === 465,
-    auth: { user, pass },
-  });
-
-  const from =
-    env.email.from && env.email.from.includes('@')
-      ? `"${env.email.fromName}" <${env.email.from}>`
-      : `"${env.email.fromName}" <${user}>`;
-
+  const sender = from && from.includes('@') ? from : user;
   const { html, text } = frame(input);
 
   try {
-    await transporter.sendMail({
-      from,
-      to: input.to,
-      subject: input.subject,
-      html,
-      text,
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: sender },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        htmlContent: html,
+        textContent: text,
+      }),
     });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Brevo API ${response.status}: ${body}`);
+    }
+
     logger.info(`Email envoyé à ${input.to} : ${input.subject}`);
     return true;
   } catch (err) {

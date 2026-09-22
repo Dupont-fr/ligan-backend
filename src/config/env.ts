@@ -18,6 +18,7 @@ const env = {
   accessTokenTtl: required('ACCESS_TOKEN_TTL', '15m'),
   refreshTokenDays: Number(process.env.REFRESH_TOKEN_DAYS ?? 30),
   email: {
+    apiKey: required('BREVO_API_KEY', ''),
     host: required('EMAIL_HOST', 'smtp-relay.brevo.com'),
     port: Number(process.env.EMAIL_PORT ?? 587),
     user: required('EMAIL_USER', ''),
