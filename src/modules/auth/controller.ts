@@ -199,7 +199,15 @@ export async function login(req: Request, res: Response) {
   }
 
   if (!user.isVerified) {
-    throw new AppError('Vérifie ton adresse email avant de te connecter', 403);
+    const code = generateEmailCode();
+    user.verificationCode = hashValue(code);
+    user.verificationCodeExpires = user.verificationCodeExpires =
+      new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
+    user.verificationAttempts = 0;
+    await user.save();
+    await sendVerificationEmail(email, code);
+    logger.info(`Nouveau code de vérification envoyé à ${email} (tentative de connexion d'un compte non vérifié)`);
+    throw new AppError('Compte non vérifié : un nouveau code vient de vous être envoyé par email', 403);
   }
 
   await openSession(user, res);

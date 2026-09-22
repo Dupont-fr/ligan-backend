@@ -4,7 +4,10 @@ const emailSchema = z.string().trim().toLowerCase().email('Adresse email invalid
 const passwordSchema = z
   .string()
   .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
-  .max(128, 'Le mot de passe est trop long');
+  .max(128, 'Le mot de passe est trop long')
+  .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
+  .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
+  .regex(/[0-9]|[^A-Za-z0-9]/, 'Le mot de passe doit contenir au moins un chiffre ou un caractère spécial');
 const codeSchema = z
   .string()
   .trim()
