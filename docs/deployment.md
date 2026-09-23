@@ -1,4 +1,4 @@
-# Déploiement — Ligan+
+# Déploiement — LIGAN+
 
 Le frontend et le backend sont **indépendants** et déployables séparément.
 

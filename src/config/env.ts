@@ -7,7 +7,7 @@ function required(name: string, fallback: string): string {
 const nodeEnv = required('NODE_ENV', 'development');
 
 const env = {
-  appName: required('APP_NAME', 'Ligan+'),
+  appName: required('APP_NAME', 'LIGAN+'),
   nodeEnv,
   isProduction: nodeEnv === 'production',
   port: Number(process.env.PORT ?? 5000),
@@ -23,7 +23,7 @@ const env = {
     port: Number(process.env.EMAIL_PORT ?? 587),
     user: required('EMAIL_USER', ''),
     pass: required('EMAIL_PASS', ''),
-    fromName: required('EMAIL_FROM_NAME', 'Ligan+'),
+    fromName: required('EMAIL_FROM_NAME', 'LIGAN+'),
     from: required('EMAIL_FROM', ''),
     disabled: process.env.EMAIL_DISABLED === '1',
   },

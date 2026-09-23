@@ -1,11 +1,11 @@
-# Architecture — Ligan+
+# Architecture — LIGAN+
 
 ## Vue d'ensemble
 
-Ligan+ est un monorepo simple composé de **deux applications indépendantes** :
+LIGAN+ est un monorepo simple composé de **deux applications indépendantes** :
 
 ```
-Ligan+/
+LIGAN+/
 ├── frontend/     Site statique React + TypeScript + Vite + Tailwind CSS
 ├── backend/      API REST Node.js + TypeScript + Express + MongoDB Atlas (Mongoose)
 └── docs/         Documentation du projet

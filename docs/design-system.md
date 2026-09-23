@@ -1,4 +1,4 @@
-# Design System — Ligan+
+# Design System — LIGAN+
 
 Le design system est la **source unique** des styles. Aucun écran ne doit inventer un style
 ad hoc : toute page réutilise les composants de `frontend/src/components/ui/`.

@@ -1,4 +1,4 @@
-# Authentification — Ligan+
+# Authentification — LIGAN+
 
 Sprint 1 — ✅ Terminé.
 
@@ -16,7 +16,7 @@ Sprint 1 — ✅ Terminé.
   (`verify-reset-code`) → création du nouveau mot de passe (révoque toutes les sessions) ;
 - **Rôles** : `CUSTOMER`, `PROFESSIONAL`, `ADMIN` ;
 - Middlewares `requireAuth`, `requireRole(...)` ;
-- Emails transactionnels au nom de **Ligan+**, HTML responsive (table + styles inline,
+- Emails transactionnels au nom de **LIGAN+**, HTML responsive (table + styles inline,
   préheader, code affiché en "cases" distinctes, texte brut associé) via SMTP Brevo ;
 - Validation **Zod** (body), messages clairs renvoyés sous
   `{ success: false, message, errors }` ;
@@ -35,7 +35,7 @@ Sprint 1 — ✅ Terminé.
 
 ## Logs (console du serveur)
 
-- `[INFO] Démarrage de Ligan+ API (environnement : …)`
+- `[INFO] Démarrage de LIGAN+ API (environnement : …)`
 - `[INFO] MongoDB connecté.`
 - `[INFO] Brevo API prête (SMTP …)` ou mode DEV (emails logués en console)
 - `[INFO] Email envoyé à x@y : …` / `[INFO] (DEV) Email « … » à destination de x@y` + contenu

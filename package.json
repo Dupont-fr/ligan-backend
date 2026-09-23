@@ -2,7 +2,7 @@
   "name": "ligan-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "API REST Ligan+ — découverte de professionnels locaux",
+  "description": "API REST LIGAN+ — découverte de professionnels locaux",
   "type": "module",
   "engines": {
     "node": ">=20"

@@ -1,4 +1,4 @@
-# API — Ligan+
+# API — LIGAN+
 
 ## Format standard
 
@@ -95,7 +95,7 @@ Vérifie le bon fonctionnement du backend et de la base.
 {
   "success": true,
   "data": {
-    "app": "Ligan+",
+    "app": "LIGAN+",
     "status": "ok",
     "env": "development",
     "version": "0.1.0",

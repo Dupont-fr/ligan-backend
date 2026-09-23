@@ -1,4 +1,4 @@
-# Feuille de route — Ligan+
+# Feuille de route — LIGAN+
 
 Développement strictement sprint par sprint. Chaque sprint se termine par un compte-rendu.
 

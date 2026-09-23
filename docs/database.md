@@ -1,4 +1,4 @@
-# Base de données — Ligan+
+# Base de données — LIGAN+
 
 MongoDB Atlas, ODM Mongoose. La connexion est faite dans `backend/src/config/database.ts`
 (URI depuis `MONGODB_URI`). Le serveur démarre même sans base (mode dégradé) et le health check

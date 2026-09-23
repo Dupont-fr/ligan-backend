@@ -10,7 +10,8 @@ interface MailInput {
 }
 
 const EMAIL_MAX_WIDTH = '600px';
-const BRAND_COLOR = '#4f46e5';
+const BRAND_COLOR = '#0f172a';
+const BRAND_RED = '#e50914';
 const VERIFICATION_CODE_TTL_MINUTES = 15;
 const RESET_CODE_TTL_MINUTES = 15;
 
@@ -36,8 +37,8 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td align="center">
-                      <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${BRAND_COLOR};border-radius:10px;color:#ffffff;font-size:20px;font-weight:700;text-align:center">+</span>
-                      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:8px">Ligan+</div>
+                      <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${BRAND_COLOR};border-radius:10px;color:#ffffff;font-size:20px;font-weight:900;font-style:italic;text-align:center">L<span style="color:${BRAND_RED}">+</span></span>
+                      <div style="font-size:18px;font-weight:900;font-style:italic;color:#0f172a;margin-top:8px;letter-spacing:-0.5px">LIGAN<span style="color:${BRAND_RED}">+</span></div>
                     </td>
                   </tr>
                 </table>
@@ -59,7 +60,7 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
             <tr>
               <td align="center" style="padding:20px 12px 0">
                 <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">
-                  © 2026 ${env.appName} — Découvrez des professionnels locaux qualifiés.<br />
+                  © 2026 ${env.appName} — Trouvez les professionnels près de vous.<br />
                   Vous recevez cet email dans le cadre de la gestion de votre compte. Si ce n'est pas vous, ignorez ce message.
                 </p>
               </td>

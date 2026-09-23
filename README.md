@@ -1,6 +1,6 @@
-# Ligan+
+# LIGAN+
 
-**Ligan+** est une plateforme SaaS de découverte de professionnels locaux (mécaniciens, plombiers, coiffeurs, boulangeries, etc.). Les professionnels créent et gèrent leur fiche d'activité ; les clients trouvent, à proximité, le professionnel qui répond à leur besoin et le contactent directement (appel, WhatsApp, itinéraire Google Maps).
+**LIGAN+** est une plateforme SaaS de découverte de professionnels locaux (mécaniciens, plombiers, coiffeurs, boulangeries, etc.). Les professionnels créent et gèrent leur fiche d'activité ; les clients trouvent, à proximité, le professionnel qui répond à leur besoin et le contactent directement (appel, WhatsApp, itinéraire Google Maps).
 
 > Trouvez le professionnel qu'il vous faut, près de chez vous.
 
@@ -79,4 +79,4 @@ Client → cherche un service → autorise sa position → voit les professionne
 
 ---
 
-© 2026 Ligan+ — Développé par sprints (voir `docs/roadmap.md`).
+© 2026 LIGAN+ — Développé par sprints (voir `docs/roadmap.md`).
