@@ -89,7 +89,7 @@ async function openSession(user: UserDoc, res: Response) {
 }
 
 export async function register(req: Request, res: Response) {
-  const { firstName, lastName, email, phone, password } = req.validBody as RegisterInput;
+  const { firstName, lastName, email, phone, password, role } = req.validBody as RegisterInput;
 
   const existing = await User.findOne({ email });
   if (existing) {
@@ -105,6 +105,7 @@ export async function register(req: Request, res: Response) {
     email,
     ...(phone ? { phone } : {}),
     passwordHash,
+    role: role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CUSTOMER',
     isVerified: false,
     verificationCode: hashValue(verificationCode),
     verificationCodeExpires: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),

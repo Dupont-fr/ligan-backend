@@ -32,6 +32,7 @@ export const registerSchema = z.object({
     .optional()
     .or(z.literal('')),
   password: passwordSchema,
+  role: z.enum(['CUSTOMER', 'PROFESSIONAL']).default('CUSTOMER'),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

@@ -7,8 +7,10 @@ import morgan from 'morgan';
 import env from './config/env.js';
 import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import activitiesRoutes from './modules/activities/routes.js';
 import authRoutes from './modules/auth/routes.js';
 import healthRoutes from './modules/health/routes.js';
+import solicitationsRoutes from './modules/solicitations/routes.js';
 
 const app = express();
 
@@ -39,6 +41,8 @@ app.get('/', (_req: Request, res) => {
 
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/activities', activitiesRoutes);
+app.use('/api/solicitations', solicitationsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
