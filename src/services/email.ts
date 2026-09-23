@@ -37,7 +37,7 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
                   <tr>
                     <td align="center">
                       <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${BRAND_COLOR};border-radius:10px;color:#ffffff;font-size:20px;font-weight:700;text-align:center">+</span>
-                      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:8px">Ligan<span style="color:${BRAND_COLOR}">+</span></div>
+                      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:8px">Ligan+</div>
                     </td>
                   </tr>
                 </table>
