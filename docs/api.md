@@ -125,8 +125,11 @@ Voir aussi `backend/api.rest` (extension REST Client) pour le scénario complet 
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
+| `GET` | `/api/admin/stats` | ADMIN | compteurs : utilisateurs (par rôle), activités, catégories, sollicitations (par statut) |
 | `GET` | `/api/admin/users` | ADMIN | liste des comptes (200 max, tri décroissant) |
 | `POST` | `/api/admin/users` | ADMIN | crée un compte `{ firstName, lastName, email, phone?, password, role }` — `role` ∈ `CUSTOMER`/`PROFESSIONAL`/`ADMIN`, créé `isVerified: true` (409 si email existant) |
+| `PATCH` | `/api/admin/users/:id` | ADMIN | modifie `firstName` / `lastName` / `phone` / `role` / `isVerified` — garde-fous : 422 si on touche à son propre rôle, 409 si rétrogradation du dernier admin |
+| `DELETE` | `/api/admin/users/:id` | ADMIN | supprime un compte (cascade activités + sollicitations) — garde-fous : 422 sur soi-même, 409 sur le dernier admin |
 
 ## Catégories (Sprint 2)
 

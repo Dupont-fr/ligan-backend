@@ -25,10 +25,10 @@ POST {{host}}/api/auth/bootstrap-admin
 Content-Type: application/json
 
 {
-  "firstName": "{{adminFirstName}}",
-  "lastName": "{{adminLastName}}",
-  "email": "{{adminEmail}}",
-  "password": "{{adminPassword}}"
+  "firstName": "Dupont",
+  "lastName": "Djeague",
+  "email": "dupontdjeague@gmail.com",
+  "password": "DupontAdmin@2006"
 }
 
 ### 2) Se connecter en tant qu'admin (ouvre la session, cookies conservés)
@@ -37,8 +37,8 @@ POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{adminEmail}}",
-  "password": "{{adminPassword}}"
+  "email": "dupontdjeague@gmail.com",
+  "password": "DupontAdmin@2006"
 }
 
 ### 3) Profil de l'admin connecté (contrôle)

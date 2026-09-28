@@ -29,3 +29,4 @@ Thumbs.db
 *.swp
 # Requetes REST locales avec identifiants reels (jamais committer)
 *.local.rest
+api.rest

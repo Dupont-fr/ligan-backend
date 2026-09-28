@@ -25,6 +25,27 @@ export const createUserSchema = z.object({
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
+const hasValue = (v: unknown) => v !== undefined;
+
+export const updateUserSchema = z
+  .object({
+    firstName: z.string().trim().min(2, 'Le prénom doit contenir au moins 2 caractères').max(60).optional(),
+    lastName: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères').max(60).optional(),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
+      .optional()
+      .or(z.literal('')),
+    role: z.enum(['CUSTOMER', 'PROFESSIONAL', 'ADMIN']).optional(),
+    isVerified: z.boolean().optional(),
+  })
+  .refine(
+    (v) => hasValue(v.firstName) || hasValue(v.lastName) || hasValue(v.phone) || hasValue(v.role) || hasValue(v.isVerified),
+    'Au moins un champ à modifier',
+  );
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
 export const idParamSchema = z.object({
   id: z.string().trim().regex(objectIdRegex, 'Identifiant invalide'),
 });
