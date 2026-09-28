@@ -1,0 +1,81 @@
+###
+# LIGAN+ — Requêtes API (extension VS Code « REST Client »)
+#
+# Prérequis :
+#   1. Backend lancé : npm run dev (http://localhost:5000)
+#   2. Dans VS Code : Rest Client > Settings > « Enable Cookie Management » = ON
+#      (les cookies de session sont réutilisés automatiquement après le login)
+#   3. Cliquez sur « Send Request » au-dessus de la requête voulue.
+#
+# Étapes du premier admin :
+#   a) POST /api/auth/bootstrap-admin  → crée le PREMIER admin
+#      (refusé avec 409 dès qu'un admin existe déjà)
+#   b) POST /api/auth/login            → ouvre la session (cookies)
+#   c) POST /api/admin/users           → crée les autres admins (connecté)
+
+@host = http://localhost:5000
+@adminFirstName = Admin
+@adminLastName = LIGAN+
+@adminEmail = admin@ligan.plus
+@adminPassword = ChangeMe-2026!
+
+### 1) Créer le premier administrateur (une seule fois)
+# @name bootstrap
+POST {{host}}/api/auth/bootstrap-admin
+Content-Type: application/json
+
+{
+  "firstName": "{{adminFirstName}}",
+  "lastName": "{{adminLastName}}",
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### 2) Se connecter en tant qu'admin (ouvre la session, cookies conservés)
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### 3) Profil de l'admin connecté (contrôle)
+# @name me
+GET {{host}}/api/auth/me
+
+### 4) Lister les comptes (ADMIN requis)
+# @name users
+GET {{host}}/api/admin/users
+
+### 5) Créer un autre administrateur (ADMIN requis)
+# @name createAdmin
+POST {{host}}/api/admin/users
+Content-Type: application/json
+
+{
+  "firstName": "Sophie",
+  "lastName": "Ngono",
+  "email": "sophie.admin@ligan.plus",
+  "password": "ChangeMe-2026!",
+  "role": "ADMIN"
+}
+
+### 6) Créer un compte client simple
+# @name createCustomer
+POST {{host}}/api/admin/users
+Content-Type: application/json
+
+{
+  "firstName": "Jean",
+  "lastName": "Kamga",
+  "email": "jean.kamga@example.com",
+  "phone": "+237690000000",
+  "password": "ChangeMe-2026!",
+  "role": "CUSTOMER"
+}
+
+### 7) Gérer les catégories (ADMIN requis)
+# @name categories
+GET {{host}}/api/categories?all=1

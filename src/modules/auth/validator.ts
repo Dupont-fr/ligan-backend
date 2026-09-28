@@ -102,3 +102,15 @@ export const deleteMeSchema = z.object({
   password: z.string().min(1, 'Mot de passe requis').max(128),
 });
 export type DeleteMeInput = z.infer<typeof deleteMeSchema>;
+
+export const bootstrapAdminSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'Le prénom doit contenir au moins 2 caractères')
+    .max(60),
+  lastName: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères').max(60),
+  email: emailSchema,
+  password: passwordSchema,
+});
+export type BootstrapAdminInput = z.infer<typeof bootstrapAdminSchema>;

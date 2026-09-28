@@ -117,6 +117,16 @@ Réponse de bienvenue de l'API.
 | `GET` | `/api/auth/me` | connecté | profil courant |
 | `PATCH` | `/api/auth/me` | connecté | modifier `firstName` / `lastName` / `phone` (vide = effacer) |
 | `DELETE` | `/api/auth/me` | connecté | suppression définitive — requiert `{ "password": "…" }` ; cascade : activités + sollicitations (envoyées/reçues), cookies effacés |
+| `POST` | `/api/auth/bootstrap-admin` | public | crée le **premier** ADMIN — refusé (409) dès qu'un admin existe ; si `BOOTSTRAP_TOKEN` est défini, exiger le header `x-bootstrap-token` |
+
+## Gestion des comptes (ADMIN)
+
+Voir aussi `backend/api.rest` (extension REST Client) pour le scénario complet : bootstrap → login → création d'admins.
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/admin/users` | ADMIN | liste des comptes (200 max, tri décroissant) |
+| `POST` | `/api/admin/users` | ADMIN | crée un compte `{ firstName, lastName, email, phone?, password, role }` — `role` ∈ `CUSTOMER`/`PROFESSIONAL`/`ADMIN`, créé `isVerified: true` (409 si email existant) |
 
 ## Catégories (Sprint 2)
 

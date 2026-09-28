@@ -5,6 +5,7 @@ import { requireAuth } from '../../middlewares/auth.js';
 import { validate } from '../../middlewares/validate.js';
 import { failure } from '../../utils/ApiResponse.js';
 import {
+  bootstrapAdmin,
   forgotPassword,
   login,
   logout,
@@ -19,6 +20,7 @@ import {
   verifyResetCode,
 } from './controller.js';
 import {
+  bootstrapAdminSchema,
   deleteMeSchema,
   forgotPasswordSchema,
   loginSchema,
@@ -68,6 +70,7 @@ const codeLimiter = rateLimit({
 });
 
 router.post('/register', authLimiter, validate(registerSchema), register);
+router.post('/bootstrap-admin', passwordLimiter, validate(bootstrapAdminSchema), bootstrapAdmin);
 router.post('/verify-code', codeLimiter, validate(verifyCodeSchema), verifyCode);
 router.post('/resend-code', codeLimiter, validate(resendCodeSchema), resendCode);
 router.post('/login', loginLimiter, validate(loginSchema), login);

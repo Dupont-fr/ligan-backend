@@ -30,6 +30,7 @@ const env = {
   admin: {
     email: required('ADMIN_EMAIL', ''),
     password: required('ADMIN_PASSWORD', ''),
+    bootstrapToken: required('BOOTSTRAP_TOKEN', ''),
   },
 };
 

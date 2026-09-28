@@ -8,6 +8,7 @@ import env from './config/env.js';
 import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import activitiesRoutes from './modules/activities/routes.js';
+import adminRoutes from './modules/admin/routes.js';
 import authRoutes from './modules/auth/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
 import healthRoutes from './modules/health/routes.js';
@@ -44,6 +45,7 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/categories', categoriesRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
 
 app.use(notFoundHandler);

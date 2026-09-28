@@ -21,6 +21,7 @@ import {
 } from '../../utils/tokens.js';
 import env from '../../config/env.js';
 import type {
+  BootstrapAdminInput,
   DeleteMeInput,
   ForgotPasswordInput,
   LoginInput,
@@ -322,6 +323,47 @@ export async function deleteMe(req: Request, res: Response) {
   logger.info(`Compte supprimé : ${user.email} (${userId.toString()})`);
 
   return success(res, { message: 'Compte supprimé définitivement' });
+}
+
+/**
+ * Création du premier compte ADMIN — utilisable une seule fois :
+ * refusé dès qu'un admin existe déjà (409). Si BOOTSTRAP_TOKEN est défini
+ * dans .env, le header `x-bootstrap-token` doit correspondre.
+ */
+export async function bootstrapAdmin(req: Request, res: Response) {
+  if (env.admin.bootstrapToken) {
+    const header = req.get('x-bootstrap-token');
+    if (header !== env.admin.bootstrapToken) {
+      throw new AppError('Token de bootstrap invalide', 403);
+    }
+  }
+
+  const existingAdmin = await User.findOne({ role: 'ADMIN' });
+  if (existingAdmin) {
+    throw new AppError('Un administrateur existe déjà : connectez-vous pour en créer d’autres.', 409);
+  }
+
+  const { firstName, lastName, email, password } = req.validBody as BootstrapAdminInput;
+
+  const existing = await User.findOne({ email });
+  if (existing) {
+    throw new AppError('Un compte existe déjà avec cette adresse email', 409);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await User.create({
+    firstName,
+    lastName,
+    email,
+    passwordHash,
+    role: 'ADMIN',
+    isVerified: true,
+    refreshTokens: [],
+  });
+
+  logger.info(`Premier administrateur créé : ${email} (${user._id.toString()})`);
+
+  return success(res, { user: toPublicUser(user) }, 201);
 }
 
 async function incrementAttempt(
