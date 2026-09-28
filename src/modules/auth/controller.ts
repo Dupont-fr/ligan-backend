@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from '../../middlewares/auth.js';
+import { Activity } from '../../models/Activity.js';
+import { Solicitation } from '../../models/Solicitation.js';
 import {
   toPublicUser,
   User,
@@ -19,11 +21,13 @@ import {
 } from '../../utils/tokens.js';
 import env from '../../config/env.js';
 import type {
+  DeleteMeInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
   ResendCodeInput,
   ResetPasswordInput,
+  UpdateMeInput,
   VerifyCodeInput,
   VerifyResetCodeInput,
 } from './validator.js';
@@ -268,6 +272,56 @@ export async function me(req: Request, res: Response) {
     throw new AppError('Utilisateur introuvable', 404);
   }
   return success(res, { user: toPublicUser(user) });
+}
+
+export async function updateMe(req: Request, res: Response) {
+  if (!req.user) {
+    throw new AppError('Authentification requise', 401);
+  }
+  const input = req.validBody as UpdateMeInput;
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw new AppError('Utilisateur introuvable', 404);
+  }
+
+  if (input.firstName !== undefined) user.firstName = input.firstName;
+  if (input.lastName !== undefined) user.lastName = input.lastName;
+  if (input.phone !== undefined) user.phone = input.phone || undefined;
+
+  await user.save();
+  logger.info(`Profil mis à jour pour ${user.email}`);
+
+  return success(res, { user: toPublicUser(user) });
+}
+
+export async function deleteMe(req: Request, res: Response) {
+  if (!req.user) {
+    throw new AppError('Authentification requise', 401);
+  }
+  const { password } = req.validBody as DeleteMeInput;
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw new AppError('Utilisateur introuvable', 404);
+  }
+
+  const passwordOk = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordOk) {
+    throw new AppError('Mot de passe incorrect', 401);
+  }
+
+  const userId = user._id;
+  await Promise.all([
+    Activity.deleteMany({ professionalId: userId }),
+    Solicitation.deleteMany({ $or: [{ fromId: userId }, { toId: userId }] }),
+  ]);
+  await user.deleteOne();
+
+  clearAuthCookies(res);
+  logger.info(`Compte supprimé : ${user.email} (${userId.toString()})`);
+
+  return success(res, { message: 'Compte supprimé définitivement' });
 }
 
 async function incrementAttempt(

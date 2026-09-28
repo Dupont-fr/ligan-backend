@@ -110,6 +110,14 @@ Vérifie le bon fonctionnement du backend et de la base.
 
 Réponse de bienvenue de l'API.
 
+## Compte utilisateur (CRUD)
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/auth/me` | connecté | profil courant |
+| `PATCH` | `/api/auth/me` | connecté | modifier `firstName` / `lastName` / `phone` (vide = effacer) |
+| `DELETE` | `/api/auth/me` | connecté | suppression définitive — requiert `{ "password": "…" }` ; cascade : activités + sollicitations (envoyées/reçues), cookies effacés |
+
 ## Catégories (Sprint 2)
 
 | Méthode | Chemin | Accès | Description |

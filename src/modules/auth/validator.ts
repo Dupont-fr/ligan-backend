@@ -71,3 +71,34 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
+  .optional()
+  .or(z.literal(''));
+
+export const updateMeSchema = z
+  .object({
+    firstName: z
+      .string()
+      .trim()
+      .min(2, 'Le prénom doit contenir au moins 2 caractères')
+      .max(60, 'Le prénom est trop long')
+      .optional(),
+    lastName: z
+      .string()
+      .trim()
+      .min(2, 'Le nom doit contenir au moins 2 caractères')
+      .max(60, 'Le nom est trop long')
+      .optional(),
+    phone: phoneSchema,
+  })
+  .refine((obj) => Object.keys(obj).length > 0, 'Aucune modification fournie');
+export type UpdateMeInput = z.infer<typeof updateMeSchema>;
+
+export const deleteMeSchema = z.object({
+  password: z.string().min(1, 'Mot de passe requis').max(128),
+});
+export type DeleteMeInput = z.infer<typeof deleteMeSchema>;

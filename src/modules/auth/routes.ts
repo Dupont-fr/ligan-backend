@@ -13,15 +13,19 @@ import {
   register,
   resendCode,
   resetPassword,
+  updateMe,
+  deleteMe,
   verifyCode,
   verifyResetCode,
 } from './controller.js';
 import {
+  deleteMeSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
   resendCodeSchema,
   resetPasswordSchema,
+  updateMeSchema,
   verifyCodeSchema,
   verifyResetCodeSchema,
 } from './validator.js';
@@ -70,6 +74,8 @@ router.post('/login', loginLimiter, validate(loginSchema), login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
+router.patch('/me', requireAuth, authLimiter, validate(updateMeSchema), updateMe);
+router.delete('/me', requireAuth, passwordLimiter, validate(deleteMeSchema), deleteMe);
 router.post('/forgot-password', passwordLimiter, validate(forgotPasswordSchema), forgotPassword);
 router.post('/verify-reset-code', codeLimiter, validate(verifyResetCodeSchema), verifyResetCode);
 router.post('/reset-password', passwordLimiter, validate(resetPasswordSchema), resetPassword);
