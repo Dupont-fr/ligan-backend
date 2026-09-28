@@ -110,9 +110,31 @@ Vérifie le bon fonctionnement du backend et de la base.
 
 Réponse de bienvenue de l'API.
 
+## Catégories (Sprint 2)
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/categories` | public | catégories actives, triées (`order`, `name`) |
+| `GET` | `/api/categories?all=1` | ADMIN | toutes les catégories (inclus inactives) |
+| `POST` | `/api/categories` | ADMIN | création (`name`, `slug` unique, `parentId?`, `order?`, `active?`) |
+| `PATCH` | `/api/categories/:id` | ADMIN | mise à jour ; un renommage synchronise `Activity.category` |
+| `DELETE` | `/api/categories/:id` | ADMIN | refusé si sous-catégories ou activités liées (409) |
+
+Réponse publique :
+
+```json
+{
+  "success": true,
+  "data": {
+    "categories": [
+      { "id": "…", "name": "Plomberie", "slug": "plomberie", "parentId": null, "order": 20, "active": true }
+    ]
+  }
+}
+```
+
 ## Sprints suivants (prévus)
 
-- `GET/POST/PUT/DELETE /api/categories` (admin) (Sprint 2)
 - `POST /api/businesses` + formulaire multi-étapes (Sprint 3)
 - `GET /api/businesses/:slug` (Sprint 4)
 - `GET /api/businesses/search?q=&latitude=&longitude=&radius=…` via `$geoNear` (Sprint 5–6)

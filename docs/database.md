@@ -10,7 +10,7 @@ expose l'état réel de la connexion.
 | --- | --- |
 | `users` | comptes (CUSTOMER / PROFESSIONAL / ADMIN) |
 | `businesses` | fiches d'activité |
-| `categories` | arborescence (parent/enfant via `parentId`) |
+| `categories` | arborescence (parent/enfant via `parentId`) — modèle `Category` (Sprint 2) |
 | `services` | prestations d'une activité |
 | `openhours` | horaires d'ouverture |
 | `businessimages` | photos d'une activité |
@@ -41,4 +41,10 @@ Ne jamais modéliser la localisation en deux champs `latitude`/`longitude` sépa
 
 ## Scripts / seed
 
-Aucun seed au Sprint 0 (hors modèles). Les seeds de catégories et de plans viennent au Sprint 2+.
+`npm run seed` (`src/seed.ts`) — idempotent :
+- upsert des 10 catégories racine (slugs : `batiment`, `plomberie`, `electricite`, `mecanique`,
+  `beaute`, `menage`, `informatique`, `cours`, `cuisine`, `bienetre`) ;
+- création du compte `ADMIN` si `ADMIN_EMAIL` / `ADMIN_PASSWORD` sont définis dans `.env`
+  (sinon : avertissement, aucun compte créé). L'inscription API ne peut pas produire de rôle ADMIN.
+
+Les seeds de plans viennent au Sprint 12+.

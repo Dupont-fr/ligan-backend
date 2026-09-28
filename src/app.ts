@@ -9,6 +9,7 @@ import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import activitiesRoutes from './modules/activities/routes.js';
 import authRoutes from './modules/auth/routes.js';
+import categoriesRoutes from './modules/categories/routes.js';
 import healthRoutes from './modules/health/routes.js';
 import solicitationsRoutes from './modules/solicitations/routes.js';
 
@@ -42,6 +43,7 @@ app.get('/', (_req: Request, res) => {
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activities', activitiesRoutes);
+app.use('/api/categories', categoriesRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
 
 app.use(notFoundHandler);

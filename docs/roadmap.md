@@ -6,7 +6,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | --- | --- | --- |
 | 0 | Analyse, architecture, initialisation (frontend + backend + MongoDB Atlas + design tokens) | ✅ Terminé |
 | 1 | Authentification (register, vérification email, login, logout, refresh, reset, rôles) | ✅ Terminé |
-| 2 | Catégories (CRUD admin + arborescence + seed) | À venir |
+| 2 | Catégories (CRUD admin + arborescence + seed) | ✅ Terminé |
 | 3 | Création d'activité (formulaire multi-étapes : infos → catégorie → services → contacts → horaires → localisation → photos) | À venir |
 | 4 | Profil public `/business/:slug` | À venir |
 | 5 | Géolocalisation (GeoJSON `2dsphere`, `$geoNear`, `GET /api/businesses/search`) | À venir |

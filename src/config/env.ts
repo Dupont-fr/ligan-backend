@@ -27,6 +27,10 @@ const env = {
     from: required('EMAIL_FROM', ''),
     disabled: process.env.EMAIL_DISABLED === '1',
   },
+  admin: {
+    email: required('ADMIN_EMAIL', ''),
+    password: required('ADMIN_PASSWORD', ''),
+  },
 };
 
 export default env;
