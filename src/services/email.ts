@@ -37,8 +37,8 @@ function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: string; te
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td align="center">
-                      <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${BRAND_COLOR};border-radius:10px;color:#ffffff;font-size:20px;font-weight:900;font-style:italic;text-align:center">L<span style="color:${BRAND_RED}">+</span></span>
-                      <div style="font-size:18px;font-weight:900;font-style:italic;color:#0f172a;margin-top:8px;letter-spacing:-0.5px">LIGAN<span style="color:${BRAND_RED}">+</span></div>
+                      <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${BRAND_COLOR};border-radius:10px;color:#ffffff;font-size:20px;font-weight:900;font-style:italic;text-align:center">L<span style="font-size:155%;color:${BRAND_RED}">+</span></span>
+                      <div style="font-size:18px;font-weight:900;font-style:italic;color:#0f172a;margin-top:8px;letter-spacing:-0.5px">LIGAN<span style="font-size:155%;color:${BRAND_RED}">+</span></div>
                     </td>
                   </tr>
                 </table>
@@ -138,7 +138,7 @@ export async function sendVerificationEmail(to: string, code: string): Promise<b
     preheader: `Votre code de vérification : ${code}`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;font-weight:700">Bienvenue sur ${env.appName} !</h1>
-      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">${env.appName} vous connecte aux professionnels locaux, près de chez vous. Pour activer votre compte, saisissez le code ci-dessous&nbsp;:</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Vous venez de créer un compte sur ${env.appName}. Saisissez le code ci-dessous pour l'activer&nbsp;:</p>
       ${codeBox(BRAND_COLOR, code, `Ce code est valable pendant ${Math.round(VERIFICATION_CODE_TTL_MINUTES)} minutes.`)}
     `,
     bodyText: `Bienvenue sur ${env.appName} ! Votre code de vérification est : ${code}. Il expire dans ${Math.round(VERIFICATION_CODE_TTL_MINUTES)} minutes.`,
@@ -152,7 +152,7 @@ export async function sendResetPasswordEmail(to: string, code: string): Promise<
     preheader: `Votre code de réinitialisation : ${code}`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;font-weight:700">Réinitialisation du mot de passe</h1>
-      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Vous avez demandé à définir un nouveau mot de passe ${env.appName}. Saisissez le code ci-dessous sur le site&nbsp;:</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#64748b;line-height:1.6">Vous avez demandé à réinitialiser votre mot de passe sur ${env.appName}. Saisissez le code ci-dessous&nbsp;:</p>
       ${codeBox(BRAND_COLOR, code, `Ce code est valable pendant ${Math.round(RESET_CODE_TTL_MINUTES)} minutes.`)}
       <p style="margin:12px 0 0;font-size:13px;color:#94a3b8;line-height:1.6">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.</p>
     `,
