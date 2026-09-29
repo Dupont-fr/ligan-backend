@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
-import { Activity, toPublicActivity } from '../../models/Activity.js';
+import { Activity, generateUniqueSlug, toPublicActivity } from '../../models/Activity.js';
 import { success } from '../../utils/ApiResponse.js';
 import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
 import type { ActivityBodyInput, ListActivitiesInput } from './validator.js';
@@ -94,6 +94,7 @@ export async function createActivity(req: Request, res: Response) {
   const input = req.validBody as ActivityBodyInput;
   const activity = await Activity.create({
     professionalId: userId,
+    slug: await generateUniqueSlug(input.title),
     ...buildFields(input),
   });
 
@@ -120,6 +121,9 @@ export async function updateActivity(req: Request, res: Response) {
   }
 
   Object.assign(activity, buildFields(input));
+  if (!activity.slug) {
+    activity.slug = await generateUniqueSlug(input.title);
+  }
   await activity.save();
 
   return success(res, { activity: toPublicActivity(activity) });

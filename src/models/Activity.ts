@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
 
 export const OPENING_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
@@ -24,6 +25,7 @@ const openingHourSchema = new Schema(
 const activitySchema = new Schema(
   {
     professionalId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    slug: { type: String, trim: true, lowercase: true, maxlength: 80, unique: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, required: true, trim: true, maxlength: 2000 },
     category: { type: String, required: true, trim: true, maxlength: 60 },
@@ -69,6 +71,7 @@ interface PopulatedProfessional {
 
 export interface PublicActivity {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   category: string;
@@ -98,6 +101,7 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
 
   return {
     id: String(raw._id),
+    ...(raw.slug ? { slug: raw.slug } : {}),
     title: raw.title,
     description: raw.description,
     category: raw.category,
@@ -137,3 +141,28 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
 }
 
 export const Activity = model<ActivityDocument>('Activity', activitySchema);
+
+/** Titre → slug URL : minuscules, sans accents, tirets. */
+export function slugifyActivityTitle(title: string): string {
+  const base = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 70)
+    .replace(/-+$/g, '');
+  return base || 'activite';
+}
+
+/** Slug unique : base, puis suffixe aléatoire en cas de collision. */
+export async function generateUniqueSlug(title: string): Promise<string> {
+  const base = slugifyActivityTitle(title);
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const candidate =
+      attempt === 0 ? base : `${base}-${randomBytes(3).toString('hex')}`.slice(0, 80).replace(/-+$/g, '');
+    const exists = await Activity.exists({ slug: candidate });
+    if (!exists) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`.slice(0, 80);
+}

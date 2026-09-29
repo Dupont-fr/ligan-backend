@@ -8,7 +8,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 1 | Authentification (register, vérification email, login, logout, refresh, reset, rôles) | ✅ Terminé |
 | 2 | Catégories (CRUD admin + arborescence + seed) | ✅ Terminé |
 | 3 | Création d'activité (formulaire multi-étapes : infos → catégorie → services → contacts → horaires → localisation → photos) | ✅ Terminé |
-| 4 | Profil public `/business/:slug` | À venir |
+| 4 | Profil public `/business/:slug` | ✅ Terminé |
 | 5 | Géolocalisation (GeoJSON `2dsphere`, `$geoNear`, `GET /api/businesses/search`) | À venir |
 | 6 | Moteur de recherche + filtres + tri | À venir |
 | 7 | Expérience client (accueil, recherche, résultat, catégories) — responsive complet | À venir |

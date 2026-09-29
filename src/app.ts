@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import activitiesRoutes from './modules/activities/routes.js';
 import adminRoutes from './modules/admin/routes.js';
 import authRoutes from './modules/auth/routes.js';
+import businessesRoutes from './modules/businesses/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
 import healthRoutes from './modules/health/routes.js';
 import solicitationsRoutes from './modules/solicitations/routes.js';
@@ -56,6 +57,7 @@ app.use(
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activities', activitiesRoutes);
+app.use('/api/businesses', businessesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/solicitations', solicitationsRoutes);

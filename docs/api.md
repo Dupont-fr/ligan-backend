@@ -189,8 +189,17 @@ Corps de création **et** de modification :
 - Contraintes : `title` ≥ 3, `description` ≥ 10, `contacts.phone` requis, `openingHours` ≥ 1 jour
   (jours uniques, format `HH:MM`), `address.city` ≥ 2.
 
+## Fiches publiques (Sprint 4)
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/businesses/:slug` | public | fiche publique `/business/:slug` — `{ activity, professional }` (`isVerified`, `memberSince`) ; 400 si slug invalide, 404 si inconnu |
+
+- `slug` est généré à la création depuis le titre (sans accents, tirets, suffixe aléatoire en cas
+  de collision) et renvoyé par toutes les listes d'activités (`GET /api/activities`).
+- Le slug reste stable lors des modifications de titre.
+
 ## Sprints suivants (prévus)
 
-- `GET /api/businesses/:slug` (Sprint 4)
 - `GET /api/businesses/search?q=&latitude=&longitude=&radius=…` via `$geoNear` (Sprint 5–6)
 - Avis, abonnements, analytics, admin (Sprints 9–12)
