@@ -60,6 +60,13 @@ const activitySchema = new Schema(
   { timestamps: true },
 );
 
+/** Garantit un slug à chaque écriture (couvre les créations sans slug). */
+activitySchema.pre('save', async function () {
+  if (!this.slug) {
+    this.slug = await generateUniqueSlug(this.title);
+  }
+});
+
 export type ActivityDocument = InferSchemaType<typeof activitySchema>;
 export type ActivityDoc = HydratedDocument<ActivityDocument>;
 
