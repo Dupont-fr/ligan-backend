@@ -2,7 +2,19 @@ import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity } from '../../models/Activity.js';
 import { success } from '../../utils/ApiResponse.js';
-import type { CreateActivityInput, ListActivitiesInput } from './validator.js';
+import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
+import type { ActivityBodyInput, ListActivitiesInput } from './validator.js';
+
+async function findOwnActivity(id: string, userId: string) {
+  const activity = await Activity.findById(id);
+  if (!activity) {
+    throw new AppError('Activité introuvable', 404);
+  }
+  if (activity.professionalId.toString() !== userId) {
+    throw new AppError('Vous ne pouvez modifier que vos propres activités', 403);
+  }
+  return activity;
+}
 
 export async function listActivities(req: Request, res: Response) {
   const { q, category } = (req.validQuery ?? {}) as ListActivitiesInput;
@@ -13,6 +25,8 @@ export async function listActivities(req: Request, res: Response) {
       { title: { $regex: q, $options: 'i' } },
       { description: { $regex: q, $options: 'i' } },
       { category: { $regex: q, $options: 'i' } },
+      { 'address.city': { $regex: q, $options: 'i' } },
+      { location: { $regex: q, $options: 'i' } },
     ];
   }
   if (category) {
@@ -40,36 +54,88 @@ export async function listMyActivities(req: Request, res: Response) {
   return success(res, { activities: activities.map((a) => toPublicActivity(a)) });
 }
 
+function buildFields(input: ActivityBodyInput) {
+  return {
+    title: input.title,
+    description: input.description,
+    category: input.category,
+    price: input.price || undefined,
+    location: input.location || undefined,
+    services: input.services.map((s) => ({
+      name: s.name,
+      ...(s.price ? { price: s.price } : {}),
+    })),
+    contacts: {
+      phone: input.contacts.phone,
+      ...(input.contacts.whatsapp ? { whatsapp: input.contacts.whatsapp } : {}),
+      ...(input.contacts.email ? { email: input.contacts.email } : {}),
+    },
+    openingHours: input.openingHours.map((h) => ({
+      day: h.day,
+      open: h.open,
+      close: h.close,
+      closed: h.closed,
+    })),
+    address: {
+      city: input.address.city,
+      ...(input.address.district ? { district: input.address.district } : {}),
+      ...(input.address.street ? { street: input.address.street } : {}),
+    },
+    photos: input.photos,
+  };
+}
+
 export async function createActivity(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) {
     throw new AppError('Authentification requise', 401);
   }
 
-  const { title, description, category, price, location } = req.validBody as CreateActivityInput;
-
+  const input = req.validBody as ActivityBodyInput;
   const activity = await Activity.create({
     professionalId: userId,
-    title,
-    description,
-    category,
-    ...(price ? { price } : {}),
-    ...(location ? { location } : {}),
+    ...buildFields(input),
   });
 
   return success(res, { activity: toPublicActivity(activity) }, 201);
+}
+
+export async function updateActivity(req: Request, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new AppError('Authentification requise', 401);
+  }
+
+  const { id } = req.validParams as { id: string };
+  const input = req.validBody as ActivityBodyInput;
+  const activity = await findOwnActivity(id, userId);
+
+  const nextPhotos = input.photos;
+  const removed = (activity.photos ?? []).filter((url) => !nextPhotos.includes(url));
+  for (const url of removed) {
+    const filename = filenameFromUrl(url);
+    if (filename) {
+      await deletePhotoFile(filename);
+    }
+  }
+
+  Object.assign(activity, buildFields(input));
+  await activity.save();
+
+  return success(res, { activity: toPublicActivity(activity) });
 }
 
 export async function deleteActivity(req: Request, res: Response) {
   const userId = req.user?.id;
   const { id } = req.validParams as { id: string };
 
-  const activity = await Activity.findById(id);
-  if (!activity) {
-    throw new AppError('Activité introuvable', 404);
-  }
-  if (activity.professionalId.toString() !== userId) {
-    throw new AppError('Vous ne pouvez supprimer que vos propres activités', 403);
+  const activity = await findOwnActivity(id, userId ?? '');
+
+  for (const url of activity.photos ?? []) {
+    const filename = filenameFromUrl(url);
+    if (filename) {
+      await deletePhotoFile(filename);
+    }
   }
 
   await activity.deleteOne();

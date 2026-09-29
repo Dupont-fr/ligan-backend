@@ -4,6 +4,7 @@ import express from 'express';
 import helmet from 'helmet';
 import sanitize from 'mongo-sanitize';
 import morgan from 'morgan';
+import path from 'node:path';
 import env from './config/env.js';
 import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
@@ -25,6 +26,7 @@ app.use(
     credentials: true,
   }),
 );
+// Photos envoyées en URL (Cloudinary) : 10mb suffisent.
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
@@ -40,6 +42,16 @@ if (!env.isProduction) {
 app.get('/', (_req: Request, res) => {
   res.json({ success: true, data: { message: `${env.appName} API — voir /api/health` } });
 });
+
+// Photos d'activités (Sprint 3)
+app.use(
+  '/uploads',
+  express.static(path.resolve(process.cwd(), 'uploads'), {
+    fallthrough: true,
+    maxAge: env.isProduction ? '7d' : 0,
+    index: false,
+  }),
+);
 
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);

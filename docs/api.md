@@ -154,9 +154,43 @@ Réponse publique :
 }
 ```
 
+## Activités (Sprint 3)
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/activities` | public | liste ; filtres `?q=` (titre, description, catégorie, ville, zone) et `?category=` |
+| `GET` | `/api/activities/mine` | PROFESSIONAL | activités du pro connecté |
+| `POST` | `/api/activities` | PROFESSIONAL | création — corps complet du wizard |
+| `PATCH` | `/api/activities/:id` | PROFESSIONAL | mise à jour complète (remplacement partiel ; retrait des photos = suppression du fichier local legacy) |
+| `DELETE` | `/api/activities/:id` | PROFESSIONAL | suppression en cascade de ses photos locales |
+
+Corps de création **et** de modification :
+
+```json
+{
+  "title": "Réparation de fuite d’eau",
+  "description": "10 à 2000 caractères",
+  "category": "Plomberie",
+  "price": "5 000 FCFA / intervention",
+  "location": "Douala et environs",
+  "services": [{ "name": "Débouchage de canalisation", "price": "5000 FCFA" }],
+  "contacts": { "phone": "690000000", "whatsapp": "691111111", "email": "contact@exemple.com" },
+  "openingHours": [
+    { "day": "MON", "open": "08:00", "close": "18:00", "closed": false }
+  ],
+  "address": { "city": "Douala", "district": "Akwa", "street": "Rue Njo-Njo" },
+  "photos": ["https://res.cloudinary.com/<cloud>/image/upload/v1/photo.jpg"]
+}
+```
+
+- `photos` : **0 à 8 URL Cloudinary** (`https://res.cloudinary.com/…`) — l'upload se fait **côté client**
+  (unsigned preset, `VITE_CLOUDINARY_*`), le serveur valide (`photoUrlRegex`) et stocke l'URL.
+  Les URLs locales `/uploads/…` restent acceptées (compatibilité).
+- Contraintes : `title` ≥ 3, `description` ≥ 10, `contacts.phone` requis, `openingHours` ≥ 1 jour
+  (jours uniques, format `HH:MM`), `address.city` ≥ 2.
+
 ## Sprints suivants (prévus)
 
-- `POST /api/businesses` + formulaire multi-étapes (Sprint 3)
 - `GET /api/businesses/:slug` (Sprint 4)
 - `GET /api/businesses/search?q=&latitude=&longitude=&radius=…` via `$geoNear` (Sprint 5–6)
 - Avis, abonnements, analytics, admin (Sprints 9–12)

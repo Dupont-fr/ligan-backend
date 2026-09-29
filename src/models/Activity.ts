@@ -1,5 +1,26 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
 
+export const OPENING_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
+export type OpeningDay = (typeof OPENING_DAYS)[number];
+
+const serviceSchema = new Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 80 },
+    price: { type: String, trim: true, maxlength: 60, default: undefined },
+  },
+  { _id: false },
+);
+
+const openingHourSchema = new Schema(
+  {
+    day: { type: String, enum: OPENING_DAYS, required: true },
+    open: { type: String, required: true, trim: true, maxlength: 5 },
+    close: { type: String, required: true, trim: true, maxlength: 5 },
+    closed: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
 const activitySchema = new Schema(
   {
     professionalId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -8,6 +29,31 @@ const activitySchema = new Schema(
     category: { type: String, required: true, trim: true, maxlength: 60 },
     price: { type: String, trim: true, maxlength: 60, default: undefined },
     location: { type: String, trim: true, maxlength: 120, default: undefined },
+    services: { type: [serviceSchema], default: [] },
+    contacts: {
+      type: new Schema(
+        {
+          phone: { type: String, trim: true, maxlength: 30, default: undefined },
+          whatsapp: { type: String, trim: true, maxlength: 30, default: undefined },
+          email: { type: String, trim: true, lowercase: true, maxlength: 254, default: undefined },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
+    },
+    openingHours: { type: [openingHourSchema], default: [] },
+    address: {
+      type: new Schema(
+        {
+          city: { type: String, trim: true, maxlength: 80, default: undefined },
+          district: { type: String, trim: true, maxlength: 80, default: undefined },
+          street: { type: String, trim: true, maxlength: 120, default: undefined },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
+    },
+    photos: { type: [String], default: [] },
   },
   { timestamps: true },
 );
@@ -28,6 +74,11 @@ export interface PublicActivity {
   category: string;
   price?: string;
   location?: string;
+  services: Array<{ name: string; price?: string }>;
+  contacts: { phone?: string; whatsapp?: string; email?: string };
+  openingHours: Array<{ day: string; open: string; close: string; closed: boolean }>;
+  address: { city?: string; district?: string; street?: string };
+  photos: string[];
   professional?: { id: string; firstName: string; lastName: string };
   createdAt: Date;
 }
@@ -38,6 +89,13 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
   const isPopulated =
     pro !== null && typeof pro === 'object' && '_id' in (pro as object);
 
+  const contacts = raw.contacts as ActivityDocument['contacts'] | undefined;
+  const address = raw.address as ActivityDocument['address'] | undefined;
+  const services = (raw.services ?? []).map((s) => ({
+    name: s.name,
+    ...(s.price ? { price: s.price } : {}),
+  }));
+
   return {
     id: String(raw._id),
     title: raw.title,
@@ -45,6 +103,24 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
     category: raw.category,
     ...(raw.price ? { price: raw.price } : {}),
     ...(raw.location ? { location: raw.location } : {}),
+    services,
+    contacts: {
+      ...(contacts?.phone ? { phone: contacts.phone } : {}),
+      ...(contacts?.whatsapp ? { whatsapp: contacts.whatsapp } : {}),
+      ...(contacts?.email ? { email: contacts.email } : {}),
+    },
+    openingHours: (raw.openingHours ?? []).map((h) => ({
+      day: h.day,
+      open: h.open,
+      close: h.close,
+      closed: Boolean(h.closed),
+    })),
+    address: {
+      ...(address?.city ? { city: address.city } : {}),
+      ...(address?.district ? { district: address.district } : {}),
+      ...(address?.street ? { street: address.street } : {}),
+    },
+    photos: raw.photos ?? [],
     ...(pro
       ? isPopulated
         ? {
