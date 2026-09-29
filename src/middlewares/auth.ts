@@ -20,6 +20,23 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   }
 }
 
+/**
+ * Peuple `req.user` si une session valide existe, sans exiger de session.
+ * Sert aux routes mixtes (ex : `GET /api/categories?all=1` = public,
+ * mais la variante `all=1` n'est réservée qu'aux ADMIN).
+ */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const token = req.cookies?.[ACCESS_COOKIE];
+  if (token) {
+    try {
+      req.user = verifyAccessToken(token);
+    } catch {
+      // Session expirée : on traite la requête comme anonyme.
+    }
+  }
+  return next();
+}
+
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
