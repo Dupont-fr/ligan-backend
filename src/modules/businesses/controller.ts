@@ -36,7 +36,35 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Recherche géolocalisée (Sprint 5) : $geoNear trié par distance si coords, sinon récent. */
+type SearchRow = ActivityDocument & { _id: unknown; distance?: number };
+
+const DAY_BY_GETDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+/** Tri/match insensibles à la casse et aux accents. */
+const COLLATION = { locale: 'fr', strength: 2 } as const;
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** Ouvert à l'instant d'après les horaires du document (plage passant minuit gérée). */
+function isOpenAt(row: ActivityDocument): boolean {
+  const now = new Date();
+  const day = DAY_BY_GETDAY[now.getDay()];
+  const slot = (row.openingHours ?? []).find((h) => h.day === day);
+  if (!slot || slot.closed) return false;
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const open = toMinutes(slot.open);
+  const close = toMinutes(slot.close);
+  if (close <= open) return minutes >= open || minutes < close;
+  return minutes >= open && minutes < close;
+}
+
+/**
+ * Recherche géolocalisée (Sprint 5) + filtres et tri (Sprint 6).
+ * `openNow` est appliqué en mémoire après l'agrégation (volume MVP) — d'où
+ * l'absence de `$limit` dans le pipeline dans ce cas.
+ */
 export async function searchBusinesses(req: Request, res: Response) {
   const p = req.validQuery as BusinessSearchInput;
 
@@ -51,12 +79,18 @@ export async function searchBusinesses(req: Request, res: Response) {
   if (p.city) {
     filter['address.city'] = { $regex: escapeRegex(p.city), $options: 'i' };
   }
+  if (p.hasPhotos !== undefined) {
+    filter.$expr = p.hasPhotos
+      ? { $gt: [{ $size: { $ifNull: ['$photos', []] } }, 0] }
+      : { $eq: [{ $size: { $ifNull: ['$photos', []] } }, 0] };
+  }
 
   const hasGeo = typeof p.latitude === 'number' && typeof p.longitude === 'number';
-  const pipeline: PipelineStage[] = [];
+  const sort = p.sort ?? (hasGeo ? 'distance' : 'recent');
 
+  const base: PipelineStage[] = [];
   if (hasGeo) {
-    pipeline.push({
+    base.push({
       $geoNear: {
         near: { type: 'Point', coordinates: [p.longitude as number, p.latitude as number] },
         distanceField: 'distance',
@@ -66,18 +100,56 @@ export async function searchBusinesses(req: Request, res: Response) {
       },
     });
   } else {
-    pipeline.push({ $match: filter });
-    pipeline.push({ $sort: { createdAt: -1 } });
+    base.push({ $match: filter });
   }
-  pipeline.push({ $limit: p.limit });
 
-  const rows = (await Activity.aggregate(pipeline)) as Array<
-    ActivityDocument & { _id: unknown; distance?: number }
-  >;
+  if (p.verified !== undefined) {
+    base.push({
+      $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' },
+    });
+    base.push({ $match: { 'proOwner.isVerified': p.verified } });
+    base.push({ $project: { proOwner: 0 } });
+  }
+
+  const sortStages: PipelineStage.Sort[] =
+    sort === 'name'
+      ? [{ $sort: { title: 1 } }]
+      : sort === 'recent'
+        ? [{ $sort: { createdAt: -1 } }]
+        : []; // distance : déjà trié par $geoNear
+
+  const skip = (p.page - 1) * p.limit;
+  let rows: SearchRow[];
+  let total: number;
+
+  if (p.openNow !== undefined) {
+    const all = (await Activity.aggregate(base, { collation: COLLATION })) as SearchRow[];
+    const filtered = all.filter((row) => isOpenAt(row) === p.openNow);
+    total = filtered.length;
+    rows = filtered.slice(skip, skip + p.limit);
+  } else {
+    const [items, counts] = await Promise.all([
+      Activity.aggregate([...base, ...sortStages, { $skip: skip }, { $limit: p.limit }], {
+        collation: COLLATION,
+      }),
+      Activity.aggregate([...base, { $count: 'total' }], { collation: COLLATION }),
+    ]);
+    rows = items as SearchRow[];
+    total = (counts[0]?.total as number | undefined) ?? 0;
+  }
+
   const items = rows.map((row) => ({
     ...toPublicActivity(row),
     ...(typeof row.distance === 'number' ? { distance: Math.round(row.distance) } : {}),
   }));
 
-  return success(res, { items, count: items.length, geo: hasGeo });
+  return success(res, {
+    items,
+    count: items.length,
+    total,
+    page: p.page,
+    pages: Math.max(1, Math.ceil(total / p.limit)),
+    geo: hasGeo,
+    sort,
+  });
 }

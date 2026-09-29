@@ -205,22 +205,26 @@ Corps de création **et** de modification :
   de collision) et renvoyé par toutes les listes d'activités (`GET /api/activities`).
 - Le slug reste stable lors des modifications de titre.
 
-## Recherche géolocalisée (Sprint 5)
+## Recherche (Sprints 5–6)
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/businesses/search` | public | résultats `items[]` + `count` + `geo` (bool) |
+| `GET` | `/api/businesses/search` | public | `items[]`, `count`, `total`, `page`, `pages`, `geo`, `sort` |
 
 Query : `q` (titre/description/catégorie), `category` (exacte), `city`, `latitude`, `longitude`
-(ensemble), `radius` (100 m – 100 km, défaut 20 km), `limit` (1–50, défaut 20).
+(ensemble), `radius` (100 m – 100 km, défaut 20 km), `sort` (`recent` — défaut sans geo, `distance`
+— défaut avec geo, `name`), `openNow`, `hasPhotos`, `verified` (`true`/`false`), `limit` (1–50,
+défaut 20), `page` (défaut 1).
 
-- **Avec coords** : `$geoNear` sphérique → tri par distance croissante, champ `distance` (mètres,
-  arrondi) ajouté à chaque item.
-- **Sans coords** : `$match` classique trié par `createdAt` récent.
-- 400 si `latitude` seule (ou inverse), hors plage, ou `radius` hors bornes. `/search` est déclaré
-  avant `/:slug`.
+- **Avec coords** : `$geoNear` sphérique → tri par distance, champ `distance` (mètres, arrondi).
+  `sort=recent|name` s'applique ensuite ; `sort=distance` sans coords retombe sur `recent`.
+- **Sans coords** : `$match` classique.
+- Filtres : `verified` via `$lookup` sur `users`, `hasPhotos` via `$expr` sur `photos`, `openNow`
+  appliqué après l'agréation (horaires du jour, plage passant minuit gérée).
+- Collation `fr` (strength 2) : tris et égalités insensibles casse/accents.
+- 400 si `latitude` seule (ou inverse), hors plage, `radius` hors bornes, `sort`/`page` invalides.
+  `/search` est déclaré avant `/:slug`.
 
 ## Sprints suivants (prévus)
 
-- Moteur de recherche + filtres + tri (Sprint 6)
 - Avis, abonnements, analytics, admin (Sprints 9–12)
