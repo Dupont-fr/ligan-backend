@@ -9,3 +9,22 @@ export const businessSlugSchema = z.object({
     .max(80),
 });
 export type BusinessSlugParam = z.infer<typeof businessSlugSchema>;
+
+/** Recherche géolocalisée (Sprint 5) : $geoNear si latitude/longitude fournies. */
+export const businessSearchSchema = z
+  .object({
+    q: z.string().trim().max(100).optional(),
+    category: z.string().trim().max(60).optional(),
+    city: z.string().trim().max(80).optional(),
+    latitude: z.coerce.number().min(-90).max(90).optional(),
+    longitude: z.coerce.number().min(-180).max(180).optional(),
+    radius: z.coerce.number().min(100, 'Rayon minimum 100 m').max(100000, 'Rayon maximum 100 km').optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .refine(
+    (data) =>
+      (typeof data.latitude === 'number' && typeof data.longitude === 'number') ||
+      (data.latitude === undefined && data.longitude === undefined),
+    { message: 'Latitude et longitude doivent être fournies ensemble', path: ['latitude'] },
+  );
+export type BusinessSearchInput = z.infer<typeof businessSearchSchema>;

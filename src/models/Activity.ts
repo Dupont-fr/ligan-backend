@@ -56,9 +56,22 @@ const activitySchema = new Schema(
       default: () => ({}),
     },
     photos: { type: [String], default: [] },
+    /** Point GeoJSON [longitude, latitude] — champ absent si position inconnue (index 2dsphere). */
+    geo: {
+      type: new Schema(
+        {
+          type: { type: String, enum: ['Point'], default: 'Point' },
+          coordinates: { type: [Number], required: true },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true },
 );
+
+activitySchema.index({ geo: '2dsphere' });
 
 /** Garantit un slug à chaque écriture (couvre les créations sans slug). */
 activitySchema.pre('save', async function () {
@@ -89,6 +102,8 @@ export interface PublicActivity {
   openingHours: Array<{ day: string; open: string; close: string; closed: boolean }>;
   address: { city?: string; district?: string; street?: string };
   photos: string[];
+  latitude?: number;
+  longitude?: number;
   professional?: { id: string; firstName: string; lastName: string };
   createdAt: Date;
 }
@@ -132,6 +147,9 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
       ...(address?.street ? { street: address.street } : {}),
     },
     photos: raw.photos ?? [],
+    ...(raw.geo?.coordinates?.length === 2
+      ? { longitude: raw.geo.coordinates[0], latitude: raw.geo.coordinates[1] }
+      : {}),
     ...(pro
       ? isPopulated
         ? {

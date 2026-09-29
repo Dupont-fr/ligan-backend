@@ -82,6 +82,9 @@ function buildFields(input: ActivityBodyInput) {
       ...(input.address.street ? { street: input.address.street } : {}),
     },
     photos: input.photos,
+    ...(typeof input.latitude === 'number' && typeof input.longitude === 'number'
+      ? { geo: { type: 'Point', coordinates: [input.longitude, input.latitude] } }
+      : { geo: undefined }),
   };
 }
 

@@ -70,11 +70,19 @@ export const activityBodySchema = z.object({
       'Chaque jour ne doit apparaître qu’une seule fois',
     ),
   address: addressSchema,
+  /** Position GPS (étape localisation du wizard) — les deux ensemble ou aucun. */
+  latitude: z.number().min(-90, 'Latitude invalide').max(90, 'Latitude invalide').optional(),
+  longitude: z.number().min(-180, 'Longitude invalide').max(180, 'Longitude invalide').optional(),
   photos: z
     .array(z.string().trim().regex(photoUrlRegex, 'URL de photo invalide'))
     .max(8, '8 photos maximum')
     .default([]),
-});
+}).refine(
+  (data) =>
+    (typeof data.latitude === 'number' && typeof data.longitude === 'number') ||
+    (data.latitude === undefined && data.longitude === undefined),
+  { message: 'Latitude et longitude doivent être fournies ensemble', path: ['latitude'] },
+);
 export type ActivityBodyInput = z.infer<typeof activityBodySchema>;
 
 export const createActivitySchema = activityBodySchema;

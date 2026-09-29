@@ -9,7 +9,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 2 | Catégories (CRUD admin + arborescence + seed) | ✅ Terminé |
 | 3 | Création d'activité (formulaire multi-étapes : infos → catégorie → services → contacts → horaires → localisation → photos) | ✅ Terminé |
 | 4 | Profil public `/business/:slug` | ✅ Terminé |
-| 5 | Géolocalisation (GeoJSON `2dsphere`, `$geoNear`, `GET /api/businesses/search`) | À venir |
+| 5 | Géolocalisation (GeoJSON `2dsphere`, `$geoNear`, `GET /api/businesses/search`) | ✅ Terminé |
 | 6 | Moteur de recherche + filtres + tri | À venir |
 | 7 | Expérience client (accueil, recherche, résultat, catégories) — responsive complet | À venir |
 | 8 | Dashboard professionnel (activité, services, horaires, photos) | À venir |

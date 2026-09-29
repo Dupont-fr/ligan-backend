@@ -179,9 +179,15 @@ Corps de création **et** de modification :
     { "day": "MON", "open": "08:00", "close": "18:00", "closed": false }
   ],
   "address": { "city": "Douala", "district": "Akwa", "street": "Rue Njo-Njo" },
+  "latitude": 4.0511,
+  "longitude": 9.7679,
   "photos": ["https://res.cloudinary.com/<cloud>/image/upload/v1/photo.jpg"]
 }
 ```
+
+- `latitude`/`longitude` : position GPS **optionnelle** (les deux ensemble ou aucun ; −90…90 /
+  −180…180) — stockée en GeoJSON `Point` (`coordinates = [longitude, latitude]`) et indexée
+  `2dsphere` pour `$geoNear`. Sans elles, l'activité reste trouvable par la recherche texte.
 
 - `photos` : **0 à 8 URL Cloudinary** (`https://res.cloudinary.com/…`) — l'upload se fait **côté client**
   (unsigned preset, `VITE_CLOUDINARY_*`), le serveur valide (`photoUrlRegex`) et stocke l'URL.
@@ -199,7 +205,22 @@ Corps de création **et** de modification :
   de collision) et renvoyé par toutes les listes d'activités (`GET /api/activities`).
 - Le slug reste stable lors des modifications de titre.
 
+## Recherche géolocalisée (Sprint 5)
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/businesses/search` | public | résultats `items[]` + `count` + `geo` (bool) |
+
+Query : `q` (titre/description/catégorie), `category` (exacte), `city`, `latitude`, `longitude`
+(ensemble), `radius` (100 m – 100 km, défaut 20 km), `limit` (1–50, défaut 20).
+
+- **Avec coords** : `$geoNear` sphérique → tri par distance croissante, champ `distance` (mètres,
+  arrondi) ajouté à chaque item.
+- **Sans coords** : `$match` classique trié par `createdAt` récent.
+- 400 si `latitude` seule (ou inverse), hors plage, ou `radius` hors bornes. `/search` est déclaré
+  avant `/:slug`.
+
 ## Sprints suivants (prévus)
 
-- `GET /api/businesses/search?q=&latitude=&longitude=&radius=…` via `$geoNear` (Sprint 5–6)
+- Moteur de recherche + filtres + tri (Sprint 6)
 - Avis, abonnements, analytics, admin (Sprints 9–12)
