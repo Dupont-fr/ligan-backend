@@ -47,6 +47,22 @@ Ne jamais modéliser la localisation en deux champs `latitude`/`longitude` sépa
 - `users.suspendedAt` (Date) + `users.suspendedReason` : compte suspendu par un admin — login et
   refresh refusés (403), `refreshTokens` vidés à la suspension.
 
+## Analytics (Sprint 10)
+
+Collection `businessevents` (modèle `BusinessEvent`) :
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `activityId` | réf. `Activity` | activité concernée |
+| `type` | enum | `PROFILE_VIEW` · `PHONE_CLICK` · `WHATSAPP_CLICK` · `DIRECTION_CLICK` |
+| `sessionId` | string (optionnel) | identifiant visiteur anonyme fourni par le front (jamais d'IP) |
+| `createdAt` | Date | horodatage (timestamps Mongoose) |
+
+- Index composite : `{ activityId: 1, type: 1, createdAt: -1 }` — servi par l'agrégation
+  `GET /api/analytics/stats`.
+- Un event n'est créé que pour une activité **`APPROVED`** (contrôlé à l'écriture).
+- Pas de purge pour l'instant (volume faible) ; la rétention sera décidée au lancement.
+
 ## Scripts / seed
 
 `npm run seed` (`src/seed.ts`) — idempotent :

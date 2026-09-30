@@ -242,6 +242,17 @@ défaut 20), `page` (défaut 1).
 - 400 si `latitude` seule (ou inverse), hors plage, `radius` hors bornes, `sort`/`page` invalides.
   `/search` est déclaré avant `/:slug`.
 
+## Analytics (Sprint 10)
+
+Events d'interaction sur les fiches publiques, agrégés par le pro. La route de tracking est
+**publique** et limitée à **60 requêtes / 15 min** par IP ; la déduplication des vues est faite
+côté client (1 `PROFILE_VIEW` par activité et par jour, `sessionId` anonyme fourni par le front).
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/analytics/events` | public | `{ activityId, type, sessionId? }` — `type` ∈ `PROFILE_VIEW` · `PHONE_CLICK` · `WHATSAPP_CLICK` · `DIRECTION_CLICK` ; 404 si l'activité est introuvable ou non `APPROVED` |
+| `GET` | `/api/analytics/stats?period=` | PROFESSIONAL | `period` ∈ `today` · `7d` (défaut) · `30d` — renvoie `totals` (par type), `total`, et `byActivity[]` (`id`, `title`, `status`, `counts`, `total`) pour les activités du pro |
+
 ## Sprints suivants (prévus)
 
-- Avis, abonnements, analytics (Sprints 10–12)
+- Avis, abonnements (Sprints 11–12)

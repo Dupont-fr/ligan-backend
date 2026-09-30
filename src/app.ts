@@ -10,6 +10,7 @@ import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import activitiesRoutes from './modules/activities/routes.js';
 import adminRoutes from './modules/admin/routes.js';
+import analyticsRoutes from './modules/analytics/routes.js';
 import authRoutes from './modules/auth/routes.js';
 import businessesRoutes from './modules/businesses/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
@@ -60,6 +61,7 @@ app.use('/api/activities', activitiesRoutes);
 app.use('/api/businesses', businessesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
 
 app.use(notFoundHandler);
