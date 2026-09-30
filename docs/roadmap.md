@@ -11,7 +11,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 4 | Profil public `/business/:slug` | ✅ Terminé |
 | 5 | Géolocalisation (GeoJSON `2dsphere`, `$geoNear`, `GET /api/businesses/search`) | ✅ Terminé |
 | 6 | Moteur de recherche + filtres + tri | ✅ Terminé |
-| 7 | Expérience client (accueil, recherche, résultat, catégories) — responsive complet | À venir |
+| 7 | Expérience client (accueil, recherche, résultat, catégories) — responsive complet | ✅ Terminé |
 | 8 | Dashboard professionnel (activité, services, horaires, photos) | À venir |
 | 9 | Administration (utilisateurs, activités, validation, catégories, avis) | À venir |
 | 10 | Analytics (`PROFILE_VIEW`, `PHONE_CLICK`, `WHATSAPP_CLICK`, `DIRECTION_CLICK`) | À venir |
