@@ -204,6 +204,11 @@ export async function login(req: Request, res: Response) {
     throw new AppError('Email ou mot de passe incorrect', 401);
   }
 
+  if (user.suspendedAt) {
+    logger.info(`Tentative de connexion d'un compte suspendu : ${email}`);
+    throw new AppError('Compte suspendu : contactez l’administrateur', 403);
+  }
+
   if (!user.isVerified) {
     const code = generateEmailCode();
     user.verificationCode = hashValue(code);
@@ -232,6 +237,10 @@ export async function refresh(req: Request, res: Response) {
   const user = await User.findOne({ refreshTokens: hashed });
   if (!user) {
     throw new AppError('Session invalide, reconnecte-toi', 401);
+  }
+
+  if (user.suspendedAt) {
+    throw new AppError('Compte suspendu : contactez l’administrateur', 403);
   }
 
   const tokens = (user.refreshTokens ?? []).filter((t) => t !== hashed);

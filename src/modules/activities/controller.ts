@@ -19,7 +19,7 @@ async function findOwnActivity(id: string, userId: string) {
 export async function listActivities(req: Request, res: Response) {
   const { q, category } = (req.validQuery ?? {}) as ListActivitiesInput;
 
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { status: 'APPROVED' };
   if (q) {
     filter.$or = [
       { title: { $regex: q, $options: 'i' } },

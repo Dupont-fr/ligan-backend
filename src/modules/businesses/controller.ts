@@ -15,6 +15,16 @@ export async function getBusiness(req: Request, res: Response) {
     throw new AppError('Fiche introuvable', 404);
   }
 
+  // Hors statut validé : visible uniquement par son propriétaire et les admins
+  // (le pro doit pouvoir prévisualiser son activité en attente de modération).
+  if (activity.status !== 'APPROVED') {
+    const isOwner = req.user?.id === String(activity.professionalId);
+    const isAdmin = req.user?.role === 'ADMIN';
+    if (!isOwner && !isAdmin) {
+      throw new AppError('Fiche introuvable', 404);
+    }
+  }
+
   const pro = await User.findById(activity.professionalId).select('firstName lastName isVerified createdAt');
   if (!pro) {
     throw new AppError('Fiche introuvable', 404);
@@ -68,7 +78,7 @@ function isOpenAt(row: ActivityDocument): boolean {
 export async function searchBusinesses(req: Request, res: Response) {
   const p = req.validQuery as BusinessSearchInput;
 
-  const filter: FilterQuery<ActivityDocument> = {};
+  const filter: FilterQuery<ActivityDocument> = { status: 'APPROVED' };
   if (p.q) {
     const rx = new RegExp(escapeRegex(p.q), 'i');
     filter.$or = [{ title: rx }, { description: rx }, { category: rx }];

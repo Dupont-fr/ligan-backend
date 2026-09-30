@@ -39,6 +39,14 @@ Index requis via `ensureIndexes()` / script d'init :
 
 Ne jamais modéliser la localisation en deux champs `latitude`/`longitude` séparés.
 
+## Modération (Sprint 9)
+
+- `activities.status` : `PENDING` (défaut à la création) · `APPROVED` · `REJECTED` · `SUSPENDED` —
+  index `{ status: 1 }` ; seules les activités `APPROVED` sont exposées publiquement. Accompagné de
+  `moderationReason` (≤ 500 car.), `moderatedBy` (réf. `User`), `moderatedAt`.
+- `users.suspendedAt` (Date) + `users.suspendedReason` : compte suspendu par un admin — login et
+  refresh refusés (403), `refreshTokens` vidés à la suspension.
+
 ## Scripts / seed
 
 `npm run seed` (`src/seed.ts`) — idempotent :

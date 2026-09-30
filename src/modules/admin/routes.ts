@@ -1,8 +1,24 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middlewares/auth.js';
 import { validate } from '../../middlewares/validate.js';
-import { adminStats, createUser, deleteUser, listUsers, updateUser } from './controller.js';
-import { createUserSchema, idParamSchema, updateUserSchema } from './validator.js';
+import {
+  adminStats,
+  createUser,
+  deleteUser,
+  listAdminActivities,
+  listUsers,
+  setActivityStatus,
+  suspendUser,
+  updateUser,
+} from './controller.js';
+import {
+  createUserSchema,
+  idParamSchema,
+  listActivitiesSchema,
+  setActivityStatusSchema,
+  suspendUserSchema,
+  updateUserSchema,
+} from './validator.js';
 
 const router = Router();
 
@@ -12,6 +28,10 @@ router.get('/stats', adminStats);
 router.get('/users', listUsers);
 router.post('/users', validate(createUserSchema), createUser);
 router.patch('/users/:id', validate(idParamSchema, 'params'), validate(updateUserSchema), updateUser);
+router.patch('/users/:id/suspend', validate(idParamSchema, 'params'), validate(suspendUserSchema), suspendUser);
 router.delete('/users/:id', validate(idParamSchema, 'params'), deleteUser);
+
+router.get('/activities', validate(listActivitiesSchema, 'query'), listAdminActivities);
+router.patch('/activities/:id/status', validate(idParamSchema, 'params'), validate(setActivityStatusSchema), setActivityStatus);
 
 export default router;

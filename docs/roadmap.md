@@ -13,9 +13,9 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 6 | Moteur de recherche + filtres + tri | ✅ Terminé |
 | 7 | Expérience client (accueil, recherche, résultat, catégories) — responsive complet | ✅ Terminé |
 | 8 | Dashboard professionnel (activité, services, horaires, photos) | ✅ Terminé |
-| 9 | Administration (utilisateurs, activités, validation, catégories, avis) | À venir |
+| 9 | Administration (utilisateurs, activités, validation, catégories) — *modération des avis reportée au sprint 11 (modèle `Review` à créer)* | ✅ Terminé |
 | 10 | Analytics (`PROFILE_VIEW`, `PHONE_CLICK`, `WHATSAPP_CLICK`, `DIRECTION_CLICK`) | À venir |
-| 11 | Avis et réputation | À venir |
+| 11 | Avis et réputation (+ modération des avis côté admin, reportée du sprint 9) | À venir |
 | 12 | Abonnements (FREE / PRO / PREMIUM) | À venir |
 | 13 | Paiements (abstraction Mobile Money / Orange Money / MTN MoMo) | À venir |
 | 14 | Premium et visibilité (vérifié, mise en avant, position prioritaire) | À venir |

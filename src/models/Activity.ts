@@ -4,6 +4,9 @@ import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mong
 export const OPENING_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 export type OpeningDay = (typeof OPENING_DAYS)[number];
 
+export const ACTIVITY_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as const;
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
 const serviceSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
@@ -56,6 +59,11 @@ const activitySchema = new Schema(
       default: () => ({}),
     },
     photos: { type: [String], default: [] },
+    /** Modération (Sprint 9) : seules les activités APPROVED sont visibles publiquement. */
+    status: { type: String, enum: ACTIVITY_STATUSES, default: 'PENDING', index: true },
+    moderationReason: { type: String, trim: true, maxlength: 500, default: undefined },
+    moderatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: undefined },
+    moderatedAt: { type: Date, default: undefined },
     /** Point GeoJSON [longitude, latitude] — champ absent si position inconnue (index 2dsphere). */
     geo: {
       type: new Schema(
@@ -104,6 +112,8 @@ export interface PublicActivity {
   photos: string[];
   latitude?: number;
   longitude?: number;
+  status: ActivityStatus;
+  moderationReason?: string;
   professional?: { id: string; firstName: string; lastName: string };
   createdAt: Date;
 }
@@ -147,6 +157,8 @@ export function toPublicActivity(doc: ActivityDoc | (ActivityDocument & { _id: u
       ...(address?.street ? { street: address.street } : {}),
     },
     photos: raw.photos ?? [],
+    status: (raw.status as ActivityStatus | undefined) ?? 'APPROVED',
+    ...(raw.moderationReason ? { moderationReason: raw.moderationReason } : {}),
     ...(raw.geo?.coordinates?.length === 2
       ? { longitude: raw.geo.coordinates[0], latitude: raw.geo.coordinates[1] }
       : {}),

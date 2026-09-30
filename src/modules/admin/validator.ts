@@ -50,3 +50,36 @@ export const idParamSchema = z.object({
   id: z.string().trim().regex(objectIdRegex, 'Identifiant invalide'),
 });
 export type IdParam = z.infer<typeof idParamSchema>;
+
+export const listActivitiesSchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED']).optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+  professionalId: z.string().trim().regex(objectIdRegex, 'Identifiant invalide').optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type AdminActivitiesInput = z.infer<typeof listActivitiesSchema>;
+
+export const setActivityStatusSchema = z
+  .object({
+    status: z.enum(['APPROVED', 'REJECTED', 'SUSPENDED']),
+    reason: z.string().trim().min(3, 'Le motif doit contenir au moins 3 caractères').max(500).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.status !== 'APPROVED' && !v.reason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Le motif est obligatoire' });
+    }
+  });
+export type SetActivityStatusInput = z.infer<typeof setActivityStatusSchema>;
+
+export const suspendUserSchema = z
+  .object({
+    suspended: z.boolean(),
+    reason: z.string().trim().min(3, 'Le motif doit contenir au moins 3 caractères').max(500).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.suspended && !v.reason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Le motif est obligatoire' });
+    }
+  });
+export type SuspendUserInput = z.infer<typeof suspendUserSchema>;

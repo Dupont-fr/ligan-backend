@@ -1,19 +1,26 @@
 import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
+import type { FilterQuery } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
-import { Activity } from '../../models/Activity.js';
+import { Activity, toPublicActivity, type ActivityDocument, type ActivityStatus } from '../../models/Activity.js';
 import { Category } from '../../models/Category.js';
 import { Solicitation } from '../../models/Solicitation.js';
 import { toPublicUser, User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
 import { logger } from '../../utils/logger.js';
-import type { CreateUserInput, UpdateUserInput } from './validator.js';
+import type {
+  AdminActivitiesInput,
+  CreateUserInput,
+  SetActivityStatusInput,
+  SuspendUserInput,
+  UpdateUserInput,
+} from './validator.js';
 
 export async function listUsers(_req: Request, res: Response) {
   const users = await User.find()
     .sort({ createdAt: -1 })
     .limit(200)
-    .select('firstName lastName email phone role isVerified createdAt updatedAt');
+    .select('firstName lastName email phone role isVerified suspendedAt suspendedReason createdAt updatedAt');
 
   return success(res, { users: users.map((u) => toPublicUser(u)) });
 }
@@ -107,13 +114,129 @@ export async function deleteUser(req: Request, res: Response) {
   return success(res, { message: 'Compte supprimé' });
 }
 
+export async function suspendUser(req: Request, res: Response) {
+  const { id } = req.validParams as { id: string };
+  const input = req.validBody as SuspendUserInput;
+
+  const user = await User.findById(id);
+  if (!user) {
+    throw new AppError('Compte introuvable', 404);
+  }
+
+  if (req.user?.id === id) {
+    throw new AppError('Vous ne pouvez pas suspendre votre propre compte', 422);
+  }
+
+  if (input.suspended && user.role === 'ADMIN') {
+    const others = await User.countDocuments({ role: 'ADMIN', _id: { $ne: user._id } });
+    if (others === 0) {
+      throw new AppError('Impossible : c’est le dernier compte administrateur', 409);
+    }
+  }
+
+  if (input.suspended) {
+    user.suspendedAt = new Date();
+    user.suspendedReason = input.reason;
+    user.refreshTokens = [];
+  } else {
+    user.suspendedAt = undefined;
+    user.suspendedReason = undefined;
+  }
+  await user.save();
+
+  logger.info(
+    `${input.suspended ? 'Compte suspendu' : 'Compte réactivé'} par un admin : ${user.email} ` +
+      `(${user._id.toString()})${input.reason ? ` — motif : ${input.reason}` : ''}`,
+  );
+
+  return success(res, { user: toPublicUser(user) });
+}
+
+export async function listAdminActivities(req: Request, res: Response) {
+  const p = req.validQuery as AdminActivitiesInput;
+
+  const filter: FilterQuery<ActivityDocument> = {};
+  if (p.status) filter.status = p.status;
+  if (p.professionalId) filter.professionalId = p.professionalId;
+  if (p.q) {
+    const rx = new RegExp(p.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ title: rx }, { description: rx }, { category: rx }, { slug: rx }];
+  }
+
+  const skip = (p.page - 1) * p.limit;
+  const [activities, total] = await Promise.all([
+    Activity.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(p.limit)
+      .populate('professionalId', 'firstName lastName email'),
+    Activity.countDocuments(filter),
+  ]);
+
+  const items = activities.map((a) => {
+    const pub = toPublicActivity(a);
+    const pro = a.professionalId as unknown as { _id: unknown; firstName: string; lastName: string; email?: string };
+    return {
+      ...pub,
+      professional: {
+        id: String(pro._id),
+        firstName: pro.firstName,
+        lastName: pro.lastName,
+        ...(pro.email ? { email: pro.email } : {}),
+      },
+    };
+  });
+
+  return success(res, {
+    activities: items,
+    total,
+    page: p.page,
+    pages: Math.max(1, Math.ceil(total / p.limit)),
+  });
+}
+
+export async function setActivityStatus(req: Request, res: Response) {
+  const { id } = req.validParams as { id: string };
+  const input = req.validBody as SetActivityStatusInput;
+
+  const activity = await Activity.findById(id);
+  if (!activity) {
+    throw new AppError('Activité introuvable', 404);
+  }
+
+  if (activity.status === input.status) {
+    throw new AppError('Cette activité a déjà ce statut', 409);
+  }
+
+  activity.status = input.status as ActivityStatus;
+  if (req.user?.id) {
+    activity.moderatedBy = req.user.id as unknown as ActivityDocument['moderatedBy'];
+  }
+  activity.moderatedAt = new Date();
+  activity.moderationReason = input.status === 'APPROVED' ? undefined : input.reason;
+  await activity.save();
+
+  const label: Record<string, string> = { APPROVED: 'validée', REJECTED: 'refusée', SUSPENDED: 'suspendue' };
+  logger.info(
+    `Activité ${label[input.status]} par un admin : ${activity.title} (${id})` +
+      `${input.reason ? ` — motif : ${input.reason}` : ''}`,
+  );
+
+  return success(res, { activity: toPublicActivity(activity) });
+}
+
 export async function adminStats(_req: Request, res: Response) {
   const [
     totalUsers,
     customers,
     professionals,
     admins,
+    suspendedUsers,
     totalActivities,
+    approvedActivities,
+    pendingActivities,
+    rejectedActivities,
+    suspendedActivities,
     totalCategories,
     activeCategories,
     totalSolicitations,
@@ -125,7 +248,12 @@ export async function adminStats(_req: Request, res: Response) {
     User.countDocuments({ role: 'CUSTOMER' }),
     User.countDocuments({ role: 'PROFESSIONAL' }),
     User.countDocuments({ role: 'ADMIN' }),
+    User.countDocuments({ suspendedAt: { $exists: true, $ne: null } }),
     Activity.countDocuments(),
+    Activity.countDocuments({ status: 'APPROVED' }),
+    Activity.countDocuments({ status: 'PENDING' }),
+    Activity.countDocuments({ status: 'REJECTED' }),
+    Activity.countDocuments({ status: 'SUSPENDED' }),
     Category.countDocuments(),
     Category.countDocuments({ active: true }),
     Solicitation.countDocuments(),
@@ -136,8 +264,14 @@ export async function adminStats(_req: Request, res: Response) {
 
   return success(res, {
     stats: {
-      users: { total: totalUsers, customers, professionals, admins },
-      activities: { total: totalActivities },
+      users: { total: totalUsers, customers, professionals, admins, suspended: suspendedUsers },
+      activities: {
+        total: totalActivities,
+        approved: approvedActivities,
+        pending: pendingActivities,
+        rejected: rejectedActivities,
+        suspended: suspendedActivities,
+      },
       categories: { total: totalCategories, active: activeCategories },
       solicitations: {
         total: totalSolicitations,

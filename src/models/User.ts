@@ -35,6 +35,9 @@ const userSchema = new Schema(
     resetPasswordCode: { type: String, default: undefined },
     resetPasswordCodeExpires: { type: Date, default: undefined },
     resetAttempts: { type: Number, default: 0 },
+    /** Suspension administrative (Sprint 9) : bloque connexion et refresh. */
+    suspendedAt: { type: Date, default: undefined },
+    suspendedReason: { type: String, trim: true, maxlength: 500, default: undefined },
     refreshTokens: { type: [String], default: [] },
   },
   { timestamps: true },
@@ -52,6 +55,9 @@ export interface PublicUser {
   phone?: string;
   role: UserRole;
   isVerified: boolean;
+  suspended: boolean;
+  suspendedAt?: string;
+  suspendedReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +71,9 @@ export function toPublicUser(doc: HydratedDocument<UserDocument>): PublicUser {
     ...(doc.phone ? { phone: doc.phone } : {}),
     role: doc.role,
     isVerified: doc.isVerified,
+    suspended: Boolean(doc.suspendedAt),
+    ...(doc.suspendedAt ? { suspendedAt: doc.suspendedAt.toISOString() } : {}),
+    ...(doc.suspendedReason ? { suspendedReason: doc.suspendedReason } : {}),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };

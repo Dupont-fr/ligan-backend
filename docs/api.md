@@ -125,11 +125,28 @@ Voir aussi `backend/api.rest` (extension REST Client) pour le scénario complet 
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/admin/stats` | ADMIN | compteurs : utilisateurs (par rôle), activités, catégories, sollicitations (par statut) |
-| `GET` | `/api/admin/users` | ADMIN | liste des comptes (200 max, tri décroissant) |
+| `GET` | `/api/admin/stats` | ADMIN | compteurs : utilisateurs (par rôle, `suspended`), activités (`approved`/`pending`/`rejected`/`suspended`), catégories, sollicitations (par statut) |
+| `GET` | `/api/admin/users` | ADMIN | liste des comptes (200 max, tri décroissant) — inclut `suspended`, `suspendedAt`, `suspendedReason` |
 | `POST` | `/api/admin/users` | ADMIN | crée un compte `{ firstName, lastName, email, phone?, password, role }` — `role` ∈ `CUSTOMER`/`PROFESSIONAL`/`ADMIN`, créé `isVerified: true` (409 si email existant) |
 | `PATCH` | `/api/admin/users/:id` | ADMIN | modifie `firstName` / `lastName` / `phone` / `role` / `isVerified` — garde-fous : 422 si on touche à son propre rôle, 409 si rétrogradation du dernier admin |
+| `PATCH` | `/api/admin/users/:id/suspend` | ADMIN | `{ suspended: boolean, reason? }` — `reason` **obligatoire** (≥ 3 car.) si `suspended: true` ; suspension = révocation des sessions (`refreshTokens` vidés) et **login/refresh bloqués (403)** ; garde-fous : 422 sur soi-même, 409 sur le dernier admin |
 | `DELETE` | `/api/admin/users/:id` | ADMIN | supprime un compte (cascade activités + sollicitations) — garde-fous : 422 sur soi-même, 409 sur le dernier admin |
+
+## Modération des activités (Sprint 9)
+
+Champ `status` sur `Activity` : `PENDING` (défaut à la création) · `APPROVED` · `REJECTED` · `SUSPENDED`,
+avec `moderationReason`, `moderatedBy`, `moderatedAt`. **Seules les activités `APPROVED` sont visibles
+publiquement** (`GET /api/activities`, `/api/businesses/search`, `/api/businesses/:slug` — un 404 y est
+renvoyé sinon, sauf pour le propriétaire de l'activité et les ADMIN qui peuvent prévisualiser).
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/admin/activities` | ADMIN | liste paginée `{ activities, total, page, pages }` — query `status`, `q` (titre/description/catégorie/slug), `professionalId`, `page`, `limit` (1–50, défaut 20) ; `professional` enrichi de l'email |
+| `PATCH` | `/api/admin/activities/:id/status` | ADMIN | `{ status: APPROVED\|REJECTED\|SUSPENDED, reason? }` — `reason` **obligatoire** (≥ 3 car.) pour `REJECTED`/`SUSPENDED`, effacé à la validation ; 404 si introuvable, 409 si déjà dans ce statut |
+
+- La création (`POST /api/activities`) démarre en `PENDING` ; la modification par le pro **ne
+  repasse pas** l'activité en attente (modération a posteriori des éditions).
+- Les actions admin sont journalisées (`logger.info` avec motif).
 
 ## Catégories (Sprint 2)
 
@@ -158,7 +175,7 @@ Réponse publique :
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/activities` | public | liste ; filtres `?q=` (titre, description, catégorie, ville, zone) et `?category=` |
+| `GET` | `/api/activities` | public | liste des activités **`APPROVED` uniquement** ; filtres `?q=` (titre, description, catégorie, ville, zone) et `?category=` |
 | `GET` | `/api/activities/mine` | PROFESSIONAL | activités du pro connecté |
 | `POST` | `/api/activities` | PROFESSIONAL | création — corps complet du wizard |
 | `PATCH` | `/api/activities/:id` | PROFESSIONAL | mise à jour complète (remplacement partiel ; retrait des photos = suppression du fichier local legacy) |
@@ -199,7 +216,7 @@ Corps de création **et** de modification :
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/businesses/:slug` | public | fiche publique `/business/:slug` — `{ activity, professional }` (`isVerified`, `memberSince`) ; 400 si slug invalide, 404 si inconnu |
+| `GET` | `/api/businesses/:slug` | public | fiche publique `/business/:slug` — `{ activity, professional }` (`isVerified`, `memberSince`) ; 400 si slug invalide, 404 si inconnu ou activité non `APPROVED` (visible par son propriétaire et les ADMIN) |
 
 - `slug` est généré à la création depuis le titre (sans accents, tirets, suffixe aléatoire en cas
   de collision) et renvoyé par toutes les listes d'activités (`GET /api/activities`).
@@ -227,4 +244,4 @@ défaut 20), `page` (défaut 1).
 
 ## Sprints suivants (prévus)
 
-- Avis, abonnements, analytics, admin (Sprints 9–12)
+- Avis, abonnements, analytics (Sprints 10–12)
