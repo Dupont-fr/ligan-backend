@@ -4,6 +4,7 @@ import type { FilterQuery } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument, type ActivityStatus } from '../../models/Activity.js';
 import { Category } from '../../models/Category.js';
+import { Plan, toPublicPlan } from '../../models/Plan.js';
 import { Review, toPublicReview, type ReviewDocument, type ReviewStatus } from '../../models/Review.js';
 import { Solicitation } from '../../models/Solicitation.js';
 import { toPublicUser, User } from '../../models/User.js';
@@ -16,6 +17,7 @@ import type {
   SetActivityStatusInput,
   SetReviewStatusInput,
   SuspendUserInput,
+  UpdatePlanInput,
   UpdateUserInput,
 } from './validator.js';
 
@@ -386,4 +388,66 @@ export async function setReviewStatus(req: Request, res: Response) {
   );
 
   return success(res, { review: toPublicReview(review, { withStatus: true }) });
+}
+
+/** Catalogue complet des plans (y compris inactifs) pour l'admin. */
+export async function listAdminPlans(_req: Request, res: Response) {
+  const plans = await Plan.find().sort({ order: 1 });
+  return success(res, {
+    plans: plans.map((plan) => ({
+      ...toPublicPlan(plan),
+      isActive: plan.isActive,
+      createdAt: plan.createdAt,
+    })),
+  });
+}
+
+/** Modification d'un plan — prix/durée modifiables en base, jamais codés en dur côté client. */
+export async function updatePlan(req: Request, res: Response) {
+  const { id } = req.validParams as { id: string };
+  const input = req.validBody as UpdatePlanInput;
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    throw new AppError('Plan introuvable', 404);
+  }
+
+  const changes: string[] = [];
+  if (input.name !== undefined && input.name !== plan.name) {
+    changes.push(`nom ${plan.name} → ${input.name}`);
+    plan.name = input.name;
+  }
+  if (input.price !== undefined && input.price !== plan.price) {
+    changes.push(`prix ${plan.price} → ${input.price} FCFA`);
+    plan.price = input.price;
+  }
+  if (input.durationDays !== undefined && input.durationDays !== plan.durationDays) {
+    changes.push(`durée ${plan.durationDays} → ${input.durationDays} j`);
+    plan.durationDays = input.durationDays;
+  }
+  if (input.features !== undefined) {
+    changes.push(`features (${input.features.length})`);
+    plan.features = input.features;
+  }
+  if (input.highlight !== undefined && input.highlight !== plan.highlight) {
+    changes.push(`mise en avant ${input.highlight}`);
+    plan.highlight = input.highlight;
+  }
+  if (input.order !== undefined && input.order !== plan.order) {
+    changes.push(`ordre ${plan.order} → ${input.order}`);
+    plan.order = input.order;
+  }
+  if (input.isActive !== undefined && input.isActive !== plan.isActive) {
+    changes.push(input.isActive ? 'reactivé' : 'désactivé');
+    plan.isActive = input.isActive;
+  }
+
+  if (changes.length === 0) {
+    throw new AppError('Aucune modification', 409);
+  }
+
+  await plan.save();
+  logger.info(`Plan ${plan.code} modifié par un admin : ${changes.join(', ')}`);
+
+  return success(res, { plan: { ...toPublicPlan(plan), isActive: plan.isActive } });
 }

@@ -15,8 +15,11 @@ import authRoutes from './modules/auth/routes.js';
 import businessesRoutes from './modules/businesses/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
 import healthRoutes from './modules/health/routes.js';
+import paymentsRoutes from './modules/payments/routes.js';
+import plansRoutes from './modules/plans/routes.js';
 import reviewsRoutes from './modules/reviews/routes.js';
 import solicitationsRoutes from './modules/solicitations/routes.js';
+import subscriptionsRoutes from './modules/subscriptions/routes.js';
 
 const app = express();
 
@@ -30,7 +33,15 @@ app.use(
   }),
 );
 // Photos envoyées en URL (Cloudinary) : 10mb suffisent.
-app.use(express.json({ limit: '10mb' }));
+// `verify` conserve le corps brut pour la signature du webhook FeexPay.
+app.use(
+  express.json({
+    limit: '10mb',
+    verify: (req, _res, buf) => {
+      (req as Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use((req: Request, _res, next: NextFunction) => {
@@ -65,6 +76,10 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
+// Plans publics + abonnements pro + webhook paiements (Sprint 12)
+app.use('/api/plans', plansRoutes);
+app.use('/api/subscriptions', subscriptionsRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

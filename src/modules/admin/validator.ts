@@ -104,3 +104,26 @@ export const suspendUserSchema = z
     }
   });
 export type SuspendUserInput = z.infer<typeof suspendUserSchema>;
+
+export const updatePlanSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60).optional(),
+    price: z.number().int().min(0).max(10_000_000).optional(),
+    durationDays: z.number().int().min(0).max(3650).optional(),
+    features: z.array(z.string().trim().min(2).max(160)).max(12).optional(),
+    highlight: z.boolean().optional(),
+    order: z.number().int().min(0).max(999).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    (v) =>
+      hasValue(v.name) ||
+      hasValue(v.price) ||
+      hasValue(v.durationDays) ||
+      hasValue(v.features) ||
+      hasValue(v.highlight) ||
+      hasValue(v.order) ||
+      hasValue(v.isActive),
+    'Au moins un champ à modifier',
+  );
+export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;

@@ -6,11 +6,13 @@ import {
   createUser,
   deleteUser,
   listAdminActivities,
+  listAdminPlans,
   listAdminReviews,
   listUsers,
   setActivityStatus,
   setReviewStatus,
   suspendUser,
+  updatePlan,
   updateUser,
 } from './controller.js';
 import {
@@ -21,6 +23,7 @@ import {
   setActivityStatusSchema,
   setReviewStatusSchema,
   suspendUserSchema,
+  updatePlanSchema,
   updateUserSchema,
 } from './validator.js';
 
@@ -40,5 +43,9 @@ router.patch('/activities/:id/status', validate(idParamSchema, 'params'), valida
 
 router.get('/reviews', validate(listReviewsSchema, 'query'), listAdminReviews);
 router.patch('/reviews/:id/status', validate(idParamSchema, 'params'), validate(setReviewStatusSchema), setReviewStatus);
+
+// Plans et abonnements (Sprint 12)
+router.get('/plans', listAdminPlans);
+router.patch('/plans/:id', validate(idParamSchema, 'params'), validate(updatePlanSchema), updatePlan);
 
 export default router;

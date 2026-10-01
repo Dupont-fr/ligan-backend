@@ -16,7 +16,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 9 | Administration (utilisateurs, activités, validation, catégories) — *modération des avis reportée au sprint 11 (modèle `Review` à créer)* | ✅ Terminé |
 | 10 | Analytics (`PROFILE_VIEW`, `PHONE_CLICK`, `WHATSAPP_CLICK`, `DIRECTION_CLICK`) — tracking public + stats pro (period `today`/`7d`/`30d`, globales et par activité) | ✅ Terminé |
 | 11 | Avis et réputation (+ modération des avis côté admin, reportée du sprint 9) | ✅ Terminé |
-| 12 | Abonnements (FREE / PRO / PREMIUM) | À venir |
+| 12 | Abonnements (FREE / PRO / PREMIUM) — catalogue public, checkout mobile money (FeexPay, mock sans clés), webhook + re-vérification, statut/expiration, downgrade FREE, prix gérés en base (admin) | ✅ Terminé |
 | 13 | Paiements (abstraction Mobile Money / Orange Money / MTN MoMo) | À venir |
 | 14 | Premium et visibilité (vérifié, mise en avant, position prioritaire) | À venir |
 | 15 | Optimisation (performance, sécurité, SEO, index) | À venir |

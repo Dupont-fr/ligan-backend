@@ -32,6 +32,11 @@ const env = {
     password: required('ADMIN_PASSWORD', ''),
     bootstrapToken: required('BOOTSTRAP_TOKEN', ''),
   },
+  payment: {
+    feexpayApiKey: required('FEEXPAY_API_KEY', ''),
+    feexpayShopId: required('FEEXPAY_SHOP_ID', ''),
+    feexpayMode: (process.env.FEEXPAY_MODE === 'LIVE' ? 'LIVE' : 'TEST') as 'LIVE' | 'TEST',
+  },
 };
 
 export default env;

@@ -269,6 +269,41 @@ moyenne de la fiche) qu'après approbation par un admin. Un seul avis par (utili
 
 `GET /api/admin/stats` inclut `stats.reviews { total, pending, approved, rejected }`.
 
+## Plans, abonnements et paiements (Sprint 12)
+
+Abonnement rattaché au **compte professionnel** (1 pro = 1 souscription, `userId` unique). Sans
+souscription valide, le plan courant est **FREE**. Les prix sont **lus en base** (modifiables par un
+admin) et jamais codés en dur côté client. Toutes les routes `/api/subscriptions/*` exigent une
+session `PROFESSIONAL` (401 sans session, 403 pour un autre rôle).
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/plans` | public | plans `isActive` triés par `order` : `plans[]` = `{ id, code, name, price, durationDays, features[], highlight, order }` |
+| `GET` | `/api/subscriptions/me` | PROFESSIONAL | `{ plan, planCode, subscription, payments[], mock }` — `subscription` = `null` sans souscription ; sinon `{ id, status, startDate, endDate?, daysLeft? }` ; `mock: true` tant que `FEEXPAY_API_KEY` / `FEEXPAY_SHOP_ID` sont vides |
+| `POST` | `/api/subscriptions/checkout` | PROFESSIONAL | `{ planId, phoneNumber, network ∈ mtn·orange }` → 201 `{ payment, mock }` (payment `PENDING` avec `providerRef`) ; 404 plan inconnu · 422 plan `FREE` (aucun paiement requis) · 400 Zod · limité à **10 / 15 min** |
+| `GET` | `/api/subscriptions/payments/:id` | propriétaire | sondage du statut : re-vérifie la transaction côté fournisseur si encore `PENDING`, renvoie `{ payment }` (`status`, `failureReason?`) ; 403 si un autre compte · limité à **60 / 15 min** |
+| `POST` | `/api/subscriptions/downgrade` | PROFESSIONAL | repasse en plan `FREE` (illimité, sans `endDate`) — idempotent |
+| `POST` | `/api/payments/webhook` | public (FeexPay) | callbacks de confirmation ; **60 / 15 min** |
+
+**Webhook** (`X-Feexpay-Signature` = `sha256hex` du corps brut, format du SDK FeexPay) : signature
+invalide → **401** ; sans signature → traitement autorisé mais la transaction est **re-vérifiée
+auprès du fournisseur** avant toute activation ; `reference` inconnue ou déjà confirmée → 200
+ignoré (idempotent) ; montant ≠ `payment.amount` → **400** (anti-spoofing).
+
+**Activation** : statut `SUCCESSFUL` → `Payment.paidAt` + souscription `ACTIVE` avec
+`endDate = now + durationDays` (0 = illimité), idempotent et rejouable depuis le webhook ou le
+polling. Échec → `FAILED` + `failureReason`. Abonnement dont `endDate` est passé → bascule
+`EXPIRED` à l'accès.
+
+**Fournisseur** (`src/services/payments/`) : interface `PaymentProvider` (`createTransaction` /
+`verify`) — implémentations `feexpay` (REST direct `api.feexpay.me`, Bearer) et `mock`
+(auto-confirmation, utilisée sans clés). Le choix se fait au runtime dans l'`index.ts`.
+
+**Admin** : `GET /api/admin/plans` (plans complets, inactifs compris) ·
+`PATCH /api/admin/plans/:id` (`name?`, `price?`, `durationDays?`, `features[]?`, `highlight?`,
+`order?`, `isActive?` — au moins un champ → 400, aucun changement → 409, prix/durée entiers
+positifs). Chaque modification est loguée.
+
 ## Sprints suivants (prévus)
 
-- Abonnements, paiements (Sprints 12–13)
+- Premium et visibilité (Sprint 14), abstractions paiement complémentaires (Sprint 13)
