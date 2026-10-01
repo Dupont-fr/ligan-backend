@@ -252,6 +252,7 @@ côté client (1 `PROFILE_VIEW` par activité et par jour, `sessionId` anonyme f
 | --- | --- | --- | --- |
 | `POST` | `/api/analytics/events` | public | `{ activityId, type, sessionId? }` — `type` ∈ `PROFILE_VIEW` · `PHONE_CLICK` · `WHATSAPP_CLICK` · `DIRECTION_CLICK` ; 404 si l'activité est introuvable ou non `APPROVED` |
 | `GET` | `/api/analytics/stats?period=` | PROFESSIONAL | `period` ∈ `today` · `7d` (défaut) · `30d` — renvoie `totals` (par type), `total`, et `byActivity[]` (`id`, `title`, `status`, `counts`, `total`) pour les activités du pro |
+| `GET` | `/api/analytics/overview?period=` | ADMIN | même forme que `/stats` mais sur **toute la plateforme** — `byActivity[]` trié décroissant (activités ayant reçu ≥ 1 event), avec `professional` (`firstName`, `lastName`) ; les `totals` incluent les events d'activités supprimées |
 
 ## Sprints suivants (prévus)
 
