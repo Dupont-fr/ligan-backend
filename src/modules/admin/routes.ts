@@ -6,8 +6,10 @@ import {
   createUser,
   deleteUser,
   listAdminActivities,
+  listAdminReviews,
   listUsers,
   setActivityStatus,
+  setReviewStatus,
   suspendUser,
   updateUser,
 } from './controller.js';
@@ -15,7 +17,9 @@ import {
   createUserSchema,
   idParamSchema,
   listActivitiesSchema,
+  listReviewsSchema,
   setActivityStatusSchema,
+  setReviewStatusSchema,
   suspendUserSchema,
   updateUserSchema,
 } from './validator.js';
@@ -33,5 +37,8 @@ router.delete('/users/:id', validate(idParamSchema, 'params'), deleteUser);
 
 router.get('/activities', validate(listActivitiesSchema, 'query'), listAdminActivities);
 router.patch('/activities/:id/status', validate(idParamSchema, 'params'), validate(setActivityStatusSchema), setActivityStatus);
+
+router.get('/reviews', validate(listReviewsSchema, 'query'), listAdminReviews);
+router.patch('/reviews/:id/status', validate(idParamSchema, 'params'), validate(setReviewStatusSchema), setReviewStatus);
 
 export default router;

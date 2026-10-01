@@ -72,6 +72,27 @@ export const setActivityStatusSchema = z
   });
 export type SetActivityStatusInput = z.infer<typeof setActivityStatusSchema>;
 
+export const listReviewsSchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+  activityId: z.string().trim().regex(objectIdRegex, 'Identifiant invalide').optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type AdminReviewsInput = z.infer<typeof listReviewsSchema>;
+
+export const setReviewStatusSchema = z
+  .object({
+    status: z.enum(['APPROVED', 'REJECTED']),
+    reason: z.string().trim().min(3, 'Le motif doit contenir au moins 3 caractères').max(500).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.status !== 'APPROVED' && !v.reason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Le motif est obligatoire' });
+    }
+  });
+export type SetReviewStatusInput = z.infer<typeof setReviewStatusSchema>;
+
 export const suspendUserSchema = z
   .object({
     suspended: z.boolean(),

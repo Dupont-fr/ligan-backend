@@ -63,6 +63,32 @@ Collection `businessevents` (modèle `BusinessEvent`) :
 - Un event n'est créé que pour une activité **`APPROVED`** (contrôlé à l'écriture).
 - Pas de purge pour l'instant (volume faible) ; la rétention sera décidée au lancement.
 
+## Avis (Sprint 11)
+
+Collection `reviews` (modèle `Review`) :
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `reviewerId` | réf. `User` | auteur de l'avis |
+| `activityId` | réf. `Activity` | activité notée |
+| `rating` | number | note 1–5 |
+| `comment` | string | 10–1000 caractères (`trim`) |
+| `status` | enum | `PENDING` (défaut) · `APPROVED` · `REJECTED` |
+| `moderationReason` | string (optionnel) | motif du refus (≤ 500 car.) |
+| `moderatedBy` | réf. `User` (optionnel) | admin ayant statué |
+| `moderatedAt` | Date (optionnel) | date de la modération |
+
+- **Index unique** `{ reviewerId: 1, activityId: 1 }` : un seul avis par utilisateur et par activité
+  (doublon intercepté → 409).
+- Index de lecture : `{ activityId: 1, status: 1, createdAt: -1 }` — servi par la fiche publique
+  (50 derniers `APPROVED`, décroissants) et par la liste admin.
+- Seuls les avis **`APPROVED`** alimentent la note moyenne et la liste publique de
+  `GET /api/businesses/:slug` (`rating { average, count }` — agrégation `APPROVED`, arrondie à
+  1 décimale, et `reviews[]`).
+- L'identité exposée publiquement est limitée au **prénom + nom** (`toPublicReview`) ; l'admin
+  reçoit en plus l'email via `populate`.
+- Auto-avis (propriétaire de l'activité) refusé en 422 ; un `ADMIN` ne peut pas poster (403).
+
 ## Scripts / seed
 
 `npm run seed` (`src/seed.ts`) — idempotent :

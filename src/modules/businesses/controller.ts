@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { FilterQuery, PipelineStage } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument } from '../../models/Activity.js';
+import { Review, toPublicReview } from '../../models/Review.js';
 import { User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
 import type { BusinessSearchInput, BusinessSlugParam } from './validator.js';
@@ -30,6 +31,18 @@ export async function getBusiness(req: Request, res: Response) {
     throw new AppError('Fiche introuvable', 404);
   }
 
+  // Note moyenne + avis publics (Sprint 11) : seuls les avis APPROVED comptent.
+  const [ratingRows, reviewDocs] = await Promise.all([
+    Review.aggregate<{ _id: null; avg: number; n: number }>([
+      { $match: { activityId: activity._id, status: 'APPROVED' } },
+      { $group: { _id: null, avg: { $avg: '$rating' }, n: { $sum: 1 } } },
+    ]),
+    Review.find({ activityId: activity._id, status: 'APPROVED' })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('reviewerId', 'firstName lastName'),
+  ]);
+
   return success(res, {
     activity: toPublicActivity(activity),
     professional: {
@@ -39,6 +52,11 @@ export async function getBusiness(req: Request, res: Response) {
       isVerified: Boolean(pro.isVerified),
       memberSince: pro.createdAt ?? null,
     },
+    rating: {
+      average: ratingRows.length > 0 ? Math.round(ratingRows[0].avg * 10) / 10 : 0,
+      count: ratingRows.length > 0 ? ratingRows[0].n : 0,
+    },
+    reviews: reviewDocs.map((r) => toPublicReview(r)),
   });
 }
 

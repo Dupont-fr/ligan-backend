@@ -4,14 +4,17 @@ import type { FilterQuery } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument, type ActivityStatus } from '../../models/Activity.js';
 import { Category } from '../../models/Category.js';
+import { Review, toPublicReview, type ReviewDocument, type ReviewStatus } from '../../models/Review.js';
 import { Solicitation } from '../../models/Solicitation.js';
 import { toPublicUser, User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
 import { logger } from '../../utils/logger.js';
 import type {
   AdminActivitiesInput,
+  AdminReviewsInput,
   CreateUserInput,
   SetActivityStatusInput,
+  SetReviewStatusInput,
   SuspendUserInput,
   UpdateUserInput,
 } from './validator.js';
@@ -243,6 +246,10 @@ export async function adminStats(_req: Request, res: Response) {
     pendingSolicitations,
     acceptedSolicitations,
     declinedSolicitations,
+    totalReviews,
+    pendingReviews,
+    approvedReviews,
+    rejectedReviews,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ role: 'CUSTOMER' }),
@@ -260,6 +267,10 @@ export async function adminStats(_req: Request, res: Response) {
     Solicitation.countDocuments({ status: 'PENDING' }),
     Solicitation.countDocuments({ status: 'ACCEPTED' }),
     Solicitation.countDocuments({ status: 'DECLINED' }),
+    Review.countDocuments(),
+    Review.countDocuments({ status: 'PENDING' }),
+    Review.countDocuments({ status: 'APPROVED' }),
+    Review.countDocuments({ status: 'REJECTED' }),
   ]);
 
   return success(res, {
@@ -279,6 +290,100 @@ export async function adminStats(_req: Request, res: Response) {
         accepted: acceptedSolicitations,
         declined: declinedSolicitations,
       },
+      reviews: {
+        total: totalReviews,
+        pending: pendingReviews,
+        approved: approvedReviews,
+        rejected: rejectedReviews,
+      },
     },
   });
+}
+
+/** Liste paginée des avis (Sprint 11) — reviewer + activité renseignés. */
+export async function listAdminReviews(req: Request, res: Response) {
+  const p = req.validQuery as AdminReviewsInput;
+
+  const filter: FilterQuery<ReviewDocument> = {};
+  if (p.status) filter.status = p.status;
+  if (p.activityId) filter.activityId = p.activityId;
+  if (p.q) {
+    const rx = new RegExp(p.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ comment: rx }];
+  }
+
+  const skip = (p.page - 1) * p.limit;
+  const [reviews, total] = await Promise.all([
+    Review.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(p.limit)
+      .populate('reviewerId', 'firstName lastName email')
+      .populate('activityId', 'title slug'),
+    Review.countDocuments(filter),
+  ]);
+
+  const items = reviews.map((r) => {
+    const reviewer = r.reviewerId as unknown as {
+      _id: unknown;
+      firstName: string;
+      lastName: string;
+      email?: string;
+    };
+    const act = r.activityId as unknown as { _id: unknown; title?: string; slug?: string } | null;
+    return {
+      id: String(r._id),
+      rating: r.rating,
+      comment: r.comment,
+      status: r.status,
+      ...(r.moderationReason ? { moderationReason: r.moderationReason } : {}),
+      createdAt: r.createdAt,
+      reviewer: {
+        id: String(reviewer._id),
+        firstName: reviewer.firstName,
+        lastName: reviewer.lastName,
+        ...(reviewer.email ? { email: reviewer.email } : {}),
+      },
+      ...(act?.title ? { activity: { id: String(act._id), title: act.title, ...(act.slug ? { slug: act.slug } : {}) } } : {}),
+    };
+  });
+
+  return success(res, {
+    reviews: items,
+    total,
+    page: p.page,
+    pages: Math.max(1, Math.ceil(total / p.limit)),
+  });
+}
+
+/** Modération d'un avis (Sprint 11) — même garde-fous que les activités. */
+export async function setReviewStatus(req: Request, res: Response) {
+  const { id } = req.validParams as { id: string };
+  const input = req.validBody as SetReviewStatusInput;
+
+  const review = await Review.findById(id).populate('activityId', 'title');
+  if (!review) {
+    throw new AppError('Avis introuvable', 404);
+  }
+
+  if (review.status === input.status) {
+    throw new AppError('Cet avis a déjà ce statut', 409);
+  }
+
+  review.status = input.status as ReviewStatus;
+  if (req.user?.id) {
+    review.moderatedBy = req.user.id as unknown as ReviewDocument['moderatedBy'];
+  }
+  review.moderatedAt = new Date();
+  review.moderationReason = input.status === 'APPROVED' ? undefined : input.reason;
+  await review.save();
+
+  const act = review.activityId as unknown as { title?: string } | null;
+  const label: Record<string, string> = { APPROVED: 'approuvé', REJECTED: 'rejeté' };
+  logger.info(
+    `Avis ${label[input.status]} par un admin : ${act?.title ?? id} (${id})` +
+      `${input.reason ? ` — motif : ${input.reason}` : ''}`,
+  );
+
+  return success(res, { review: toPublicReview(review, { withStatus: true }) });
 }

@@ -15,6 +15,7 @@ import authRoutes from './modules/auth/routes.js';
 import businessesRoutes from './modules/businesses/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
 import healthRoutes from './modules/health/routes.js';
+import reviewsRoutes from './modules/reviews/routes.js';
 import solicitationsRoutes from './modules/solicitations/routes.js';
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/businesses', businessesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/reviews', reviewsRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
 
 app.use(notFoundHandler);

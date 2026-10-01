@@ -254,6 +254,21 @@ côté client (1 `PROFILE_VIEW` par activité et par jour, `sessionId` anonyme f
 | `GET` | `/api/analytics/stats?period=` | PROFESSIONAL | `period` ∈ `today` · `7d` (défaut) · `30d` — renvoie `totals` (par type), `total`, et `byActivity[]` (`id`, `title`, `status`, `counts`, `total`) pour les activités du pro |
 | `GET` | `/api/analytics/overview?period=` | ADMIN | même forme que `/stats` mais sur **toute la plateforme** — `byActivity[]` trié décroissant (activités ayant reçu ≥ 1 event), avec `professional` (`firstName`, `lastName`) ; les `totals` incluent les events d'activités supprimées |
 
+## Avis et réputation (Sprint 11)
+
+Les avis démarrent en `PENDING` : ils ne deviennent visibles publiquement (liste **et** note
+moyenne de la fiche) qu'après approbation par un admin. Un seul avis par (utilisateur, activité).
+
+| Méthode | Chemin | Accès | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/reviews` | CUSTOMER · PROFESSIONAL | `{ activityId, rating (1–5), comment (10–1000 car.) }` → 201 `PENDING` + `review` (auteur inclus) ; 401 sans session · 403 pour un ADMIN · 404 activité inconnue · 409 doublon · 422 auto-avis du propriétaire · 400 Zod |
+| `DELETE` | `/api/reviews/:id` | auteur uniquement | 200 ; 403 si un autre utilisateur (admin compris), 404 si introuvable |
+| `GET` | `/api/businesses/:slug` | public | enrichi : `rating { average, count }` (agrégation `APPROVED`, arrondi 1 déc.) + `reviews[]` (50 derniers `APPROVED`, décroissants, auteur = prénom + nom) |
+| `GET` | `/api/admin/reviews?status=&q=&page=&limit=` | ADMIN | liste paginée avec `reviewer` (dont email) et `activity` ; filtres `status` ∈ `PENDING` · `APPROVED` · `REJECTED`, recherche `q` sur le commentaire (regex échappée) |
+| `PATCH` | `/api/admin/reviews/:id/status` | ADMIN | `{ status: APPROVED \| REJECTED, reason? }` — `reason` **obligatoire (≥ 3 car.)** si `REJECTED` ; 404 introuvable · 409 même statut · enregistre `moderatedBy` / `moderatedAt` / `moderationReason` |
+
+`GET /api/admin/stats` inclut `stats.reviews { total, pending, approved, rejected }`.
+
 ## Sprints suivants (prévus)
 
-- Avis, abonnements (Sprints 11–12)
+- Abonnements, paiements (Sprints 12–13)
