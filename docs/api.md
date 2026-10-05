@@ -279,16 +279,17 @@ session `PROFESSIONAL` (401 sans session, 403 pour un autre rôle).
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
 | `GET` | `/api/plans` | public | plans `isActive` triés par `order` : `plans[]` = `{ id, code, name, price, durationDays, features[], highlight, order }` |
-| `GET` | `/api/subscriptions/me` | PROFESSIONAL | `{ plan, planCode, subscription, payments[], mock }` — `subscription` = `null` sans souscription ; sinon `{ id, status, startDate, endDate?, daysLeft? }` ; `mock: true` tant que `FEEXPAY_API_KEY` / `FEEXPAY_SHOP_ID` sont vides |
-| `POST` | `/api/subscriptions/checkout` | PROFESSIONAL | `{ planId, phoneNumber, network ∈ mtn·orange }` → 201 `{ payment, mock }` (payment `PENDING` avec `providerRef`) ; 404 plan inconnu · 422 plan `FREE` (aucun paiement requis) · 400 Zod · limité à **10 / 15 min** |
+| `GET` | `/api/subscriptions/me` | PROFESSIONAL | `{ plan, planCode, subscription, payments[], mock }` — `subscription` = `null` sans souscription ; sinon `{ id, status, startDate, endDate?, daysLeft? }` ; `mock: true` tant que `SEBPAY_PUBLIC_KEY` / `SEBPAY_SECRET_KEY` sont vides |
+| `POST` | `/api/subscriptions/checkout` | PROFESSIONAL | `{ planId, phoneNumber, network ∈ mtn·orange }` → 201 `{ payment, providerLink, mock }` (payment `PENDING` avec `providerRef` ; `providerLink` = lien de validation SebPay quand fourni → à ouvrir côté client) ; 404 plan inconnu · 422 plan `FREE` (aucun paiement requis) · 400 Zod · limité à **10 / 15 min** |
 | `GET` | `/api/subscriptions/payments/:id` | propriétaire | sondage du statut : re-vérifie la transaction côté fournisseur si encore `PENDING`, renvoie `{ payment }` (`status`, `failureReason?`) ; 403 si un autre compte · limité à **60 / 15 min** |
 | `POST` | `/api/subscriptions/downgrade` | PROFESSIONAL | repasse en plan `FREE` (illimité, sans `endDate`) — idempotent |
-| `POST` | `/api/payments/webhook` | public (FeexPay) | callbacks de confirmation ; **60 / 15 min** |
+| `POST` | `/api/payments/webhook` | public (SebPay) | callbacks `callback_url` des collections ; **60 / 15 min** |
 
-**Webhook** (`X-Feexpay-Signature` = `sha256hex` du corps brut, format du SDK FeexPay) : signature
-invalide → **401** ; sans signature → traitement autorisé mais la transaction est **re-vérifiée
-auprès du fournisseur** avant toute activation ; `reference` inconnue ou déjà confirmée → 200
-ignoré (idempotent) ; montant ≠ `payment.amount` → **400** (anti-spoofing).
+**Webhook** (`X-SebPay-Signature` = HMAC-SHA256 du corps brut signé avec `SEBPAY_SECRET_KEY`,
+hex ou base64) : signature invalide → **401** ; sans signature → traitement autorisé mais la
+transaction est **re-vérifiée auprès de l'API** avant toute activation ; `external_reference`
+(= `payment._id`) ou `transaction_id` inconnu, ou déjà confirmé → 200 ignoré (idempotent) ;
+montant ≠ `payment.amount` → **400** (anti-spoofing).
 
 **Activation** : statut `SUCCESSFUL` → `Payment.paidAt` + souscription `ACTIVE` avec
 `endDate = now + durationDays` (0 = illimité), idempotent et rejouable depuis le webhook ou le
@@ -296,8 +297,9 @@ polling. Échec → `FAILED` + `failureReason`. Abonnement dont `endDate` est pa
 `EXPIRED` à l'accès.
 
 **Fournisseur** (`src/services/payments/`) : interface `PaymentProvider` (`createTransaction` /
-`verify`) — implémentations `feexpay` (REST direct `api.feexpay.me`, Bearer) et `mock`
-(auto-confirmation, utilisée sans clés). Le choix se fait au runtime dans l'`index.ts`.
+`verify`) — implémentations `sebpay` (REST direct `newapi.sebpay.bj`, headers `X-Public-Key` /
+`X-Secret-Key`, collectes `POST /api/v1/collections`) et `mock` (auto-confirmation, utilisée sans
+clés). Le choix se fait au runtime dans l'`index.ts`.
 
 **Admin** : `GET /api/admin/plans` (plans complets, inactifs compris) ·
 `PATCH /api/admin/plans/:id` (`name?`, `price?`, `durationDays?`, `features[]?`, `highlight?`,

@@ -33,9 +33,12 @@ const env = {
     bootstrapToken: required('BOOTSTRAP_TOKEN', ''),
   },
   payment: {
-    feexpayApiKey: required('FEEXPAY_API_KEY', ''),
-    feexpayShopId: required('FEEXPAY_SHOP_ID', ''),
-    feexpayMode: (process.env.FEEXPAY_MODE === 'LIVE' ? 'LIVE' : 'TEST') as 'LIVE' | 'TEST',
+    sebpayPublicKey: required('SEBPAY_PUBLIC_KEY', ''),
+    sebpaySecretKey: required('SEBPAY_SECRET_KEY', ''),
+    sebpayCurrency: required('SEBPAY_CURRENCY', 'XAF'),
+    sebpayCountry: required('SEBPAY_COUNTRY', 'CM').toUpperCase(),
+    /** URL publique du backend — sert à construire le callback_url des collectes. */
+    publicApiUrl: (process.env.PUBLIC_API_URL ?? '').replace(/\/+$/, ''),
   },
 };
 

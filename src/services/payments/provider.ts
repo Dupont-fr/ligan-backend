@@ -1,9 +1,9 @@
-export type PaymentProviderName = 'FEEXPAY' | 'MOCK';
+export type PaymentProviderName = 'SEBPAY' | 'MOCK';
 
 export interface CreateTransactionInput {
   /** Montant en FCFA. */
   amount: number;
-  /** Notre référence interne (paymentId) — remontée dans `callback_info`. */
+  /** Notre référence interne (paymentId) — envoyée comme `external_reference`. */
   reference: string;
   phoneNumber: string;
   network: 'mtn' | 'orange';
@@ -15,11 +15,13 @@ export interface CreateTransactionInput {
 
 export type NormalizedStatus = 'PENDING' | 'SUCCESSFUL' | 'FAILED';
 
-export interface TransactionResult {
+export type TransactionResult = {
   providerRef: string;
   status: NormalizedStatus;
+  /** Lien de validation SebPay (provider_link) — à ouvrir par le client si présent. */
+  redirectUrl?: string;
   raw?: unknown;
-}
+};
 
 export interface VerifyResult {
   status: NormalizedStatus;
@@ -47,12 +49,12 @@ export class ProviderError extends Error {
   }
 }
 
-/** Statuts FeexPay (diverses casse/formes) → statut normalisé interne. */
+/** Statuts SebPay (approved/rejected/pending, diverses casse/formes) → statut interne. */
 export function normalizeStatus(value: unknown): NormalizedStatus {
   const v = String(value ?? '')
     .toUpperCase()
     .trim();
-  if (['SUCCESSFUL', 'SUCCESS', 'ACCEPTED', 'COMPLETE', 'COMPLETED'].includes(v)) return 'SUCCESSFUL';
+  if (['SUCCESSFUL', 'SUCCESS', 'ACCEPTED', 'APPROVED', 'COMPLETE', 'COMPLETED'].includes(v)) return 'SUCCESSFUL';
   if (['FAILED', 'FAILURE', 'REFUSED', 'CANCELLED', 'CANCELED', 'REJECTED'].includes(v)) return 'FAILED';
   return 'PENDING';
 }

@@ -119,8 +119,8 @@ Collection `payments` (modèle `Payment`) :
 | --- | --- | --- |
 | `userId` · `planId` | réf. `User` · réf. `Plan` | acheteur et plan visé |
 | `amount` · `currency` | number · string | montant exact attendu (FCFA / `XAF`) — re-vérifié au webhook |
-| `provider` | enum | `FEEXPAY` · `MOCK` |
-| `providerRef` | string, **unique sparse** | référence fournisseur (`reference` FeexPay) — clé de rapprochement du webhook |
+| `provider` | enum | `SEBPAY` · `MOCK` |
+| `providerRef` | string, **unique sparse** | référence fournisseur (`transaction_id` SebPay) — clé de rapprochement du webhook |
 | `network` · `phoneNumber` | enum (optionnel) | `mtn` · `orange` + numéro débité |
 | `status` | enum | `PENDING` (défaut) · `SUCCESSFUL` · `FAILED` · `EXPIRED` |
 | `failureReason` · `paidAt` | string (optionnel) · Date (optionnel) | motif d'échec · date de confirmation |

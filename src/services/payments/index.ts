@@ -1,11 +1,11 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { logger } from '../../utils/logger.js';
 import env from '../../config/env.js';
 import { Payment, type PaymentDoc } from '../../models/Payment.js';
 import { Plan, type PlanCode, type PlanDoc } from '../../models/Plan.js';
 import { Subscription, type SubscriptionDoc } from '../../models/Subscription.js';
-import { feexpayProvider } from './feexpay.js';
 import { mockProvider } from './mock.js';
+import { sebpayProvider } from './sebpay.js';
 import type { NormalizedStatus, PaymentProvider } from './provider.js';
 
 export { ProviderError, normalizeStatus } from './provider.js';
@@ -13,20 +13,20 @@ export type { CreateTransactionInput, NormalizedStatus, PaymentProvider } from '
 
 let mockWarned = false;
 
-/** FeexPay si les clés sont présentes dans le `.env`, sinon simulation (mock). */
+/** SebPay si les clés sont présentes dans le `.env`, sinon simulation (mock). */
 export function getPaymentProvider(): PaymentProvider {
-  if (env.payment.feexpayApiKey && env.payment.feexpayShopId) {
-    return feexpayProvider;
+  if (env.payment.sebpayPublicKey && env.payment.sebpaySecretKey) {
+    return sebpayProvider;
   }
   if (!mockWarned) {
     mockWarned = true;
-    logger.warn('FeexPay non configuré (FEEXPAY_API_KEY / FEEXPAY_SHOP_ID vides) — paiements simulés (mock).');
+    logger.warn('SebPay non configuré (SEBPAY_PUBLIC_KEY / SEBPAY_SECRET_KEY vides) — paiements simulés (mock).');
   }
   return mockProvider;
 }
 
 export function isPaymentMock(): boolean {
-  return !(env.payment.feexpayApiKey && env.payment.feexpayShopId);
+  return !(env.payment.sebpayPublicKey && env.payment.sebpaySecretKey);
 }
 
 /**
@@ -123,21 +123,28 @@ export async function downgradeToFree(userId: string): Promise<SubscriptionDoc |
 }
 
 /**
- * Vérification de la signature FeexPay (`X-Feexpay-Signature` = sha256hex du
- * corps brut, format du SDK officiel). Absente → non vérifiable (« accepted »),
- * le contrôle étant complété par la re-vérification de la transaction.
+ * Vérification de la signature SebPay (`X-SebPay-Signature` = HMAC-SHA256 du
+ * corps brut signé avec la clé secrète ; hex ou base64 acceptés). Absente →
+ * non vérifiable (« accepted »), le contrôle étant complété par la
+ * re-vérification de la transaction auprès de l'API.
  */
 export function verifyWebhookSignature(rawBody: Buffer | undefined, signature: string | undefined): 'valid' | 'invalid' | 'absent' {
   if (!signature) return 'absent';
-  if (!rawBody) return 'invalid';
-  const expected = createHash('sha256').update(rawBody).digest('hex');
-  const provided = signature.trim().toLowerCase();
-  if (expected.length !== provided.length) return 'invalid';
-  try {
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(provided)) ? 'valid' : 'invalid';
-  } catch {
-    return 'invalid';
+  if (!rawBody || !env.payment.sebpaySecretKey) return 'invalid';
+  const secret = env.payment.sebpaySecretKey;
+  const pairs: Array<[string, string]> = [
+    [createHmac('sha256', secret).update(rawBody).digest('hex'), signature.trim().toLowerCase()],
+    [createHmac('sha256', secret).update(rawBody).digest('base64'), signature.trim()],
+  ];
+  for (const [expected, given] of pairs) {
+    if (expected.length !== given.length) continue;
+    try {
+      if (timingSafeEqual(Buffer.from(expected), Buffer.from(given))) return 'valid';
+    } catch {
+      /* pas ce format */
+    }
   }
+  return 'invalid';
 }
 
 /** Paiements récents d'un utilisateur (page abonnement). */

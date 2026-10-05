@@ -43,8 +43,8 @@ export async function mySubscription(req: Request, res: Response) {
 }
 
 /**
- * Démarre un paiement FeexPay pour un plan payant : crée le Payment PENDING
- * puis demande la transaction au fournisseur (mock tant que les clés manquent).
+ * Démarre un paiement SebPay pour un plan payant : crée le Payment PENDING
+ * puis demande la collection au fournisseur (mock tant que les clés manquent).
  */
 export async function checkout(req: Request, res: Response) {
   const userId = String(req.user?.id);
@@ -68,6 +68,7 @@ export async function checkout(req: Request, res: Response) {
     phoneNumber: input.phoneNumber,
   });
 
+  let providerLink: string | undefined;
   try {
     const user = await User.findById(userId).select('firstName lastName email');
     const result = await provider.createTransaction({
@@ -82,6 +83,7 @@ export async function checkout(req: Request, res: Response) {
     });
     payment.providerRef = result.providerRef;
     await payment.save();
+    providerLink = result.redirectUrl;
     if (result.status !== 'PENDING') {
       await applyPaymentResult(payment, result.status);
     }
@@ -97,7 +99,15 @@ export async function checkout(req: Request, res: Response) {
     throw err;
   }
 
-  return success(res, { payment: toPublicPayment(payment, plan), mock: isPaymentMock() }, 201);
+  return success(
+    res,
+    {
+      payment: toPublicPayment(payment, plan),
+      providerLink: providerLink ?? null,
+      mock: isPaymentMock(),
+    },
+    201,
+  );
 }
 
 function toPublicPayment(payment: PaymentDoc | null, plan?: InstanceType<typeof Plan> | null) {

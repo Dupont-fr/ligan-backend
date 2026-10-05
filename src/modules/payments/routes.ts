@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { feexpayWebhook } from './controller.js';
+import { sebpayWebhook } from './controller.js';
 
 const router = Router();
 
@@ -12,6 +12,6 @@ const webhookLimiter = rateLimit({
   message: { success: false, message: 'Trop de requêtes' },
 });
 
-router.post('/webhook', webhookLimiter, feexpayWebhook);
+router.post('/webhook', webhookLimiter, sebpayWebhook);
 
 export default router;

@@ -33,7 +33,7 @@ app.use(
   }),
 );
 // Photos envoyées en URL (Cloudinary) : 10mb suffisent.
-// `verify` conserve le corps brut pour la signature du webhook FeexPay.
+// `verify` conserve le corps brut pour la signature du webhook SebPay.
 app.use(
   express.json({
     limit: '10mb',

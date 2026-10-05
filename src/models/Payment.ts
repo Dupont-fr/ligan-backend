@@ -13,8 +13,8 @@ const paymentSchema = new Schema(
     /** Montant exact attendu en FCFA (re-vérifié au webhook pour éviter le spoofing). */
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, default: 'XAF' },
-    provider: { type: String, enum: ['FEEXPAY', 'MOCK'], required: true },
-    /** Référence côté fournisseur (FeexPay `reference`) — clé de rapprochement du webhook. */
+    provider: { type: String, enum: ['SEBPAY', 'MOCK'], required: true },
+    /** Référence côté fournisseur (SebPay `transaction_id`) — clé de rapprochement du webhook. */
     providerRef: { type: String, index: true, unique: true, sparse: true },
     network: { type: String, enum: PAYMENT_NETWORKS, default: undefined },
     phoneNumber: { type: String, trim: true, maxlength: 30, default: undefined },
