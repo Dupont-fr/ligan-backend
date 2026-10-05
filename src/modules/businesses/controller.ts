@@ -4,6 +4,7 @@ import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument } from '../../models/Activity.js';
 import { Review, toPublicReview } from '../../models/Review.js';
 import { User } from '../../models/User.js';
+import { resolvePlan } from '../../services/payments/index.js';
 import { success } from '../../utils/ApiResponse.js';
 import type { BusinessSearchInput, BusinessSlugParam } from './validator.js';
 
@@ -31,6 +32,9 @@ export async function getBusiness(req: Request, res: Response) {
     throw new AppError('Fiche introuvable', 404);
   }
 
+  // Plan effectif du pro (Sprint 14) — pilote le badge Premium de la fiche.
+  const { code: planCode } = await resolvePlan(String(pro._id));
+
   // Note moyenne + avis publics (Sprint 11) : seuls les avis APPROVED comptent.
   const [ratingRows, reviewDocs] = await Promise.all([
     Review.aggregate<{ _id: null; avg: number; n: number }>([
@@ -51,6 +55,7 @@ export async function getBusiness(req: Request, res: Response) {
       lastName: pro.lastName,
       isVerified: Boolean(pro.isVerified),
       memberSince: pro.createdAt ?? null,
+      planCode,
     },
     rating: {
       average: ratingRows.length > 0 ? Math.round(ratingRows[0].avg * 10) / 10 : 0,
@@ -64,7 +69,13 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-type SearchRow = ActivityDocument & { _id: unknown; distance?: number };
+type SearchRow = ActivityDocument & {
+  _id: unknown;
+  distance?: number;
+  isVerified?: boolean;
+  planCode?: string;
+  rank?: number;
+};
 
 const DAY_BY_GETDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
 /** Tri/match insensibles à la casse et aux accents. */
@@ -131,36 +142,87 @@ export async function searchBusinesses(req: Request, res: Response) {
     base.push({ $match: filter });
   }
 
-  if (p.verified !== undefined) {
-    base.push({
-      $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' },
-    });
-    base.push({ $match: { 'proOwner.isVerified': p.verified } });
-    base.push({ $project: { proOwner: 0 } });
-  }
+  // Sprint 14 « Premium et visibilité » : enrichissement du pipeline —
+  // vérification du propriétaire (badge + filtre `verified`) et plan effectif
+  // de l'abonnement (FREE/PRO/PREMIUM) calculé à la volée pour le boost.
+  const now = new Date();
+  const enrich: PipelineStage[] = [
+    { $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' } },
+    ...(p.verified !== undefined
+      ? [{ $match: { 'proOwner.isVerified': p.verified } } as PipelineStage.Match]
+      : []),
+    {
+      $lookup: {
+        from: 'subscriptions',
+        let: { proId: '$professionalId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$userId', '$$proId'] },
+                  { $eq: ['$status', 'ACTIVE'] },
+                  { $or: [{ $eq: ['$endDate', null] }, { $gt: ['$endDate', now] }] },
+                ],
+              },
+            },
+          },
+          { $lookup: { from: 'plans', localField: 'planId', foreignField: '_id', as: 'planDoc' } },
+          { $unwind: { path: '$planDoc', preserveNullAndEmptyArrays: true } },
+          { $project: { _id: 0, code: '$planDoc.code' } },
+        ],
+        as: 'subPlan',
+      },
+    },
+    {
+      $addFields: {
+        isVerified: { $arrayElemAt: ['$proOwner.isVerified', 0] },
+        planCode: { $arrayElemAt: ['$subPlan.code', 0] },
+      },
+    },
+    {
+      $addFields: {
+        // Position prioritaire : PREMIUM > PRO > FREE (triées ensuite sur `rank`).
+        rank: {
+          $switch: {
+            branches: [
+              { case: { $eq: ['$planCode', 'PREMIUM'] }, then: 2 },
+              { case: { $eq: ['$planCode', 'PRO'] }, then: 1 },
+            ],
+            default: 0,
+          },
+        },
+      },
+    },
+  ];
+  const strip: PipelineStage = { $project: { proOwner: 0, subPlan: 0, rank: 0 } };
 
+  // Tri : la position prioritaire (rank) domine, puis le critère demandé —
+  // sauf `name` (alphabétique attendu tel quel).
   const sortStages: PipelineStage.Sort[] =
     sort === 'name'
       ? [{ $sort: { title: 1 } }]
       : sort === 'recent'
-        ? [{ $sort: { createdAt: -1 } }]
-        : []; // distance : déjà trié par $geoNear
+        ? [{ $sort: { rank: -1, createdAt: -1 } }]
+        : [{ $sort: { rank: -1, distance: 1 } }];
 
   const skip = (p.page - 1) * p.limit;
   let rows: SearchRow[];
   let total: number;
 
   if (p.openNow !== undefined) {
-    const all = (await Activity.aggregate(base, { collation: COLLATION })) as SearchRow[];
+    const all = (await Activity.aggregate([...base, ...enrich, ...sortStages, strip], {
+      collation: COLLATION,
+    })) as SearchRow[];
     const filtered = all.filter((row) => isOpenAt(row) === p.openNow);
     total = filtered.length;
     rows = filtered.slice(skip, skip + p.limit);
   } else {
     const [items, counts] = await Promise.all([
-      Activity.aggregate([...base, ...sortStages, { $skip: skip }, { $limit: p.limit }], {
+      Activity.aggregate([...base, ...enrich, ...sortStages, strip, { $skip: skip }, { $limit: p.limit }], {
         collation: COLLATION,
       }),
-      Activity.aggregate([...base, { $count: 'total' }], { collation: COLLATION }),
+      Activity.aggregate([...base, ...enrich, { $count: 'total' }], { collation: COLLATION }),
     ]);
     rows = items as SearchRow[];
     total = (counts[0]?.total as number | undefined) ?? 0;
@@ -169,6 +231,8 @@ export async function searchBusinesses(req: Request, res: Response) {
   const items = rows.map((row) => ({
     ...toPublicActivity(row),
     ...(typeof row.distance === 'number' ? { distance: Math.round(row.distance) } : {}),
+    isVerified: row.isVerified === true,
+    planCode: row.planCode ?? 'FREE',
   }));
 
   return success(res, {

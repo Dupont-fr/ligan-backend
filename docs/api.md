@@ -216,7 +216,7 @@ Corps de création **et** de modification :
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/businesses/:slug` | public | fiche publique `/business/:slug` — `{ activity, professional }` (`isVerified`, `memberSince`) ; 400 si slug invalide, 404 si inconnu ou activité non `APPROVED` (visible par son propriétaire et les ADMIN) |
+| `GET` | `/api/businesses/:slug` | public | fiche publique `/business/:slug` — `{ activity, professional }` (`isVerified`, `memberSince`, `planCode` = plan effectif du pro) ; 400 si slug invalide, 404 si inconnu ou activité non `APPROVED` (visible par son propriétaire et les ADMIN) |
 
 - `slug` est généré à la création depuis le titre (sans accents, tirets, suffixe aléatoire en cas
   de collision) et renvoyé par toutes les listes d'activités (`GET /api/activities`).
@@ -226,7 +226,7 @@ Corps de création **et** de modification :
 
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/businesses/search` | public | `items[]`, `count`, `total`, `page`, `pages`, `geo`, `sort` |
+| `GET` | `/api/businesses/search` | public | `items[]` (chaque item : `planCode` = plan effectif du propriétaire + `isVerified`), `count`, `total`, `page`, `pages`, `geo`, `sort` — **position prioritaire** (Sprint 14) : `rank` PREMIUM (2) > PRO (1) > FREE (0) domine les tris `distance` et `recent` (alphabétique `name` inchangé) ; souscription expirée = FREE |
 
 Query : `q` (titre/description/catégorie), `category` (exacte), `city`, `latitude`, `longitude`
 (ensemble), `radius` (100 m – 100 km, défaut 20 km), `sort` (`recent` — défaut sans geo, `distance`
