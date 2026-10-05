@@ -5,28 +5,75 @@ import { Payment, type PaymentDoc } from '../../models/Payment.js';
 import { Plan, type PlanCode, type PlanDoc } from '../../models/Plan.js';
 import { Subscription, type SubscriptionDoc } from '../../models/Subscription.js';
 import { mockProvider } from './mock.js';
-import { sebpayProvider } from './sebpay.js';
+import { fetchSebPayOperators, sebpayProvider, type PaymentOperator } from './sebpay.js';
 import type { NormalizedStatus, PaymentProvider } from './provider.js';
 
 export { ProviderError, normalizeStatus } from './provider.js';
 export type { CreateTransactionInput, NormalizedStatus, PaymentProvider } from './provider.js';
+export type { PaymentOperator } from './sebpay.js';
 
 let mockWarned = false;
 
+/**
+ * Mode simulation : sans clés SebPay, ou avec `PAYMENT_MOCK=1` (tests/démo
+ * même en présence de clés live — évite les vrais débits pendant les tests).
+ */
+export function isPaymentMock(): boolean {
+  if (process.env.PAYMENT_MOCK === '1') return true;
+  return !(env.payment.sebpayPublicKey && env.payment.sebpaySecretKey);
+}
+
 /** SebPay si les clés sont présentes dans le `.env`, sinon simulation (mock). */
 export function getPaymentProvider(): PaymentProvider {
-  if (env.payment.sebpayPublicKey && env.payment.sebpaySecretKey) {
+  if (!isPaymentMock()) {
     return sebpayProvider;
   }
   if (!mockWarned) {
     mockWarned = true;
-    logger.warn('SebPay non configuré (SEBPAY_PUBLIC_KEY / SEBPAY_SECRET_KEY vides) — paiements simulés (mock).');
+    if (env.payment.sebpayPublicKey && env.payment.sebpaySecretKey) {
+      logger.info('PAYMENT_MOCK=1 : clés SebPay présentes mais paiements simulés (mode test).');
+    } else {
+      logger.warn('SebPay non configuré (SEBPAY_PUBLIC_KEY / SEBPAY_SECRET_KEY vides) — paiements simulés (mock).');
+    }
   }
   return mockProvider;
 }
 
-export function isPaymentMock(): boolean {
-  return !(env.payment.sebpayPublicKey && env.payment.sebpaySecretKey);
+/** Repli statique (mode mock) : opérateurs du Cameroun. */
+const STATIC_OPERATORS: PaymentOperator[] = [
+  { slug: 'mtn', name: 'MTN MoMo', otpRequired: false, ussdCode: null },
+  { slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null },
+];
+
+const OPERATORS_TTL_MS = 60 * 60 * 1000;
+const OPERATORS_RETRY_MS = 60 * 1000;
+let operatorsCache: { at: number; data: PaymentOperator[] } | null = null;
+let operatorsLastFailureAt = 0;
+
+/**
+ * Opérateurs mobile money disponibles — liste dynamique SebPay (cache 1 h),
+ * repli sur les opérateurs statiques si l'API est injoignable ou sans clés.
+ */
+export async function listOperators(): Promise<PaymentOperator[]> {
+  if (isPaymentMock()) return STATIC_OPERATORS;
+  if (operatorsCache && Date.now() - operatorsCache.at < OPERATORS_TTL_MS) {
+    return operatorsCache.data;
+  }
+  if (Date.now() - operatorsLastFailureAt < OPERATORS_RETRY_MS) {
+    return operatorsCache?.data ?? STATIC_OPERATORS;
+  }
+  try {
+    const data = await fetchSebPayOperators();
+    if (data.length > 0) {
+      operatorsCache = { at: Date.now(), data };
+      return data;
+    }
+    operatorsLastFailureAt = Date.now();
+  } catch (err) {
+    operatorsLastFailureAt = Date.now();
+    logger.warn(`Liste des opérateurs SebPay injoignable : ${err instanceof Error ? err.message : err}`);
+  }
+  return operatorsCache?.data ?? STATIC_OPERATORS;
 }
 
 /**

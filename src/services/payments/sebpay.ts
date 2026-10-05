@@ -27,6 +27,13 @@ interface SebPayCollection {
   message?: string;
 }
 
+interface SebPayOperator {
+  name?: string;
+  slug?: string;
+  otp_required?: boolean;
+  ussd_code?: string;
+}
+
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
@@ -84,6 +91,7 @@ export const sebpayProvider: PaymentProvider = {
       operator: input.network,
       country: env.payment.sebpayCountry,
       external_reference: input.reference,
+      ...(input.otpCode ? { otp_code: input.otpCode } : {}),
       ...(env.payment.publicApiUrl
         ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
         : {}),
@@ -107,3 +115,24 @@ export const sebpayProvider: PaymentProvider = {
     return { status: normalizeStatus(data.status), raw: data };
   },
 };
+
+export interface PaymentOperator {
+  slug: string;
+  name: string;
+  otpRequired: boolean;
+  ussdCode: string | null;
+}
+
+/** Opérateurs actifs du pays du compte marchand (GET /operators?country=…). */
+export async function fetchSebPayOperators(): Promise<PaymentOperator[]> {
+  const data = await request<SebPayOperator[]>('GET', `/api/v1/operators?country=${env.payment.sebpayCountry}`);
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((op): op is SebPayOperator & { slug: string } => typeof op.slug === 'string' && op.slug.length > 0)
+    .map((op) => ({
+      slug: op.slug,
+      name: typeof op.name === 'string' && op.name ? op.name : op.slug.toUpperCase(),
+      otpRequired: op.otp_required === true,
+      ussdCode: typeof op.ussd_code === 'string' && op.ussd_code ? op.ussd_code : null,
+    }));
+}

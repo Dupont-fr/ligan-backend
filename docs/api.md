@@ -279,11 +279,12 @@ session `PROFESSIONAL` (401 sans session, 403 pour un autre rôle).
 | Méthode | Chemin | Accès | Description |
 | --- | --- | --- | --- |
 | `GET` | `/api/plans` | public | plans `isActive` triés par `order` : `plans[]` = `{ id, code, name, price, durationDays, features[], highlight, order }` |
-| `GET` | `/api/subscriptions/me` | PROFESSIONAL | `{ plan, planCode, subscription, payments[], mock }` — `subscription` = `null` sans souscription ; sinon `{ id, status, startDate, endDate?, daysLeft? }` ; `mock: true` tant que `SEBPAY_PUBLIC_KEY` / `SEBPAY_SECRET_KEY` sont vides |
-| `POST` | `/api/subscriptions/checkout` | PROFESSIONAL | `{ planId, phoneNumber, network ∈ mtn·orange }` → 201 `{ payment, providerLink, mock }` (payment `PENDING` avec `providerRef` ; `providerLink` = lien de validation SebPay quand fourni → à ouvrir côté client) ; 404 plan inconnu · 422 plan `FREE` (aucun paiement requis) · 400 Zod · limité à **10 / 15 min** |
+| `GET` | `/api/subscriptions/me` | PROFESSIONAL | `{ plan, planCode, subscription, payments[], mock }` — `subscription` = `null` sans souscription ; sinon `{ id, status, startDate, endDate?, daysLeft? }` ; `mock: true` tant que `SEBPAY_PUBLIC_KEY` / `SEBPAY_SECRET_KEY` sont vides (ou `PAYMENT_MOCK=1`) |
+| `POST` | `/api/subscriptions/checkout` | PROFESSIONAL | `{ planId, phoneNumber, network ∈ mtn·orange, otpCode? }` (`otpCode` requis si l'opérateur a `otpRequired`) → 201 `{ payment, providerLink, mock }` (payment `PENDING` avec `providerRef` ; `providerLink` = lien de validation SebPay quand fourni → à ouvrir côté client) ; 404 plan inconnu · 422 plan `FREE` (aucun paiement requis) · 400 Zod · limité à **10 / 15 min** |
 | `GET` | `/api/subscriptions/payments/:id` | propriétaire | sondage du statut : re-vérifie la transaction côté fournisseur si encore `PENDING`, renvoie `{ payment }` (`status`, `failureReason?`) ; 403 si un autre compte · limité à **60 / 15 min** |
 | `POST` | `/api/subscriptions/downgrade` | PROFESSIONAL | repasse en plan `FREE` (illimité, sans `endDate`) — idempotent |
 | `POST` | `/api/payments/webhook` | public (SebPay) | callbacks `callback_url` des collections ; **60 / 15 min** |
+| `GET` | `/api/payments/operators` | public | opérateurs mobile money du pays : `{ operators: [{ slug, name, otpRequired, ussdCode }] }` — source SebPay `GET /operators` (cache 1 h), repli statique `mtn`/`orange` en mode mock ou si l'API est injoignable ; **60 / 15 min** |
 
 **Webhook** (`X-SebPay-Signature` = HMAC-SHA256 du corps brut signé avec `SEBPAY_SECRET_KEY`,
 hex ou base64) : signature invalide → **401** ; sans signature → traitement autorisé mais la

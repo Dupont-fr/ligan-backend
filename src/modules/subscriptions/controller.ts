@@ -80,6 +80,7 @@ export async function checkout(req: Request, res: Response) {
       lastName: user?.lastName,
       email: user?.email,
       motif: `Abonnement ${plan.name} — LIGAN+`,
+      otpCode: input.otpCode,
     });
     payment.providerRef = result.providerRef;
     await payment.save();

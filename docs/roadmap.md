@@ -17,7 +17,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 10 | Analytics (`PROFILE_VIEW`, `PHONE_CLICK`, `WHATSAPP_CLICK`, `DIRECTION_CLICK`) — tracking public + stats pro (period `today`/`7d`/`30d`, globales et par activité) | ✅ Terminé |
 | 11 | Avis et réputation (+ modération des avis côté admin, reportée du sprint 9) | ✅ Terminé |
 | 12 | Abonnements (FREE / PRO / PREMIUM) — catalogue public, checkout mobile money (FeexPay, mock sans clés), webhook + re-vérification, statut/expiration, downgrade FREE, prix gérés en base (admin) | ✅ Terminé |
-| 13 | Paiements (abstraction Mobile Money / Orange Money / MTN MoMo) | À venir |
+| 13 | Paiements (abstraction Mobile Money / Orange Money / MTN MoMo) — opérateurs dynamiques (`GET /api/payments/operators`, cache 1 h), flux OTP (`otp_code` + champ USSD côté client), provider SebPay derrière l'interface `PaymentProvider` | ✅ Terminé |
 | 14 | Premium et visibilité (vérifié, mise en avant, position prioritaire) | À venir |
 | 15 | Optimisation (performance, sécurité, SEO, index) | À venir |
 | 16 | Tests (unitaires, intégration, frontend, sécurité) | À venir |

@@ -11,6 +11,8 @@ export interface CreateTransactionInput {
   lastName?: string;
   email?: string;
   motif?: string;
+  /** Code OTP saisi par le client — requis par certains opérateurs (`otp_required`). */
+  otpCode?: string;
 }
 
 export type NormalizedStatus = 'PENDING' | 'SUCCESSFUL' | 'FAILED';

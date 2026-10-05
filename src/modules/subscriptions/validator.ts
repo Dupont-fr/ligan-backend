@@ -12,6 +12,12 @@ export const checkoutSchema = z.object({
     .max(15, 'Numéro de téléphone invalide')
     .regex(/^\+?[0-9]+$/, 'Numéro de téléphone invalide (chiffres uniquement)'),
   network: z.enum(PAYMENT_NETWORKS, { message: 'Réseau invalide' }),
+  /** Code OTP (opérateurs exigeant une confirmation USSD, ex. Orange CI). */
+  otpCode: z
+    .string()
+    .trim()
+    .regex(/^\d{4,12}$/, 'Code OTP invalide (4 à 12 chiffres)')
+    .optional(),
 });
 
 export const paymentIdParamSchema = z.object({ id: objectId });

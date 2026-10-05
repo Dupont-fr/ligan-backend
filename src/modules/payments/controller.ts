@@ -5,6 +5,7 @@ import { Payment, type PaymentDoc } from '../../models/Payment.js';
 import {
   applyPaymentResult,
   getPaymentProvider,
+  listOperators,
   normalizeStatus,
   verifyWebhookSignature,
 } from '../../services/payments/index.js';
@@ -12,6 +13,11 @@ import { logger } from '../../utils/logger.js';
 import { success } from '../../utils/ApiResponse.js';
 
 type WebhookRequest = Request & { rawBody?: Buffer };
+
+/** Opérateurs mobile money du pays — pilote l'UI (champ OTP si `otpRequired`). */
+export async function operators(_req: Request, res: Response) {
+  return success(res, { operators: await listOperators() });
+}
 
 /**
  * Webhook SebPay — reçoit le callback de confirmation d'une collection.
