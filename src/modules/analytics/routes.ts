@@ -3,8 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { requireAuth, requireRole } from '../../middlewares/auth.js';
 import { validate } from '../../middlewares/validate.js';
 import { failure } from '../../utils/ApiResponse.js';
-import { myStats, platformOverview, trackEvent } from './controller.js';
-import { statsQuerySchema, trackEventSchema } from './validator.js';
+import { myStats, platformHistory, platformOverview, trackEvent } from './controller.js';
+import { historyQuerySchema, statsQuerySchema, trackEventSchema } from './validator.js';
 
 const router = Router();
 
@@ -20,5 +20,6 @@ const analyticsLimiter = rateLimit({
 router.post('/events', analyticsLimiter, validate(trackEventSchema), trackEvent);
 router.get('/stats', requireAuth, requireRole('PROFESSIONAL'), validate(statsQuerySchema, 'query'), myStats);
 router.get('/overview', requireAuth, requireRole('ADMIN'), validate(statsQuerySchema, 'query'), platformOverview);
+router.get('/history', requireAuth, requireRole('ADMIN'), validate(historyQuerySchema, 'query'), platformHistory);
 
 export default router;

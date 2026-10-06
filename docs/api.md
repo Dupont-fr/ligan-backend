@@ -257,6 +257,11 @@ côté client (1 `PROFILE_VIEW` par activité et par jour, `sessionId` anonyme f
 | `POST` | `/api/analytics/events` | public | `{ activityId, type, sessionId? }` — `type` ∈ `PROFILE_VIEW` · `PHONE_CLICK` · `WHATSAPP_CLICK` · `DIRECTION_CLICK` ; 404 si l'activité est introuvable ou non `APPROVED` |
 | `GET` | `/api/analytics/stats?period=` | PROFESSIONAL | `period` ∈ `today` · `7d` (défaut) · `30d` — renvoie `totals` (par type), `total`, et `byActivity[]` (`id`, `title`, `status`, `counts`, `total`) pour les activités du pro |
 | `GET` | `/api/analytics/overview?period=` | ADMIN | même forme que `/stats` mais sur **toute la plateforme** — `byActivity[]` trié décroissant (activités ayant reçu ≥ 1 event), avec `professional` (`firstName`, `lastName`) ; les `totals` incluent les events d'activités supprimées |
+| `GET` | `/api/analytics/history?range=` | ADMIN | courbes d'évolution — `range` ∈ `30d` · `90d` (défaut `30d`, granularité `day`) · `12mo` (granularité `month`) — `points[]` cumulés par bucket : `date` (ISO jour/mois), `users`, `activities`, `activeSubs` (abonnements **payants** actifs à la fin du bucket : `startDate ≤ t` et `endDate > t` ou sans fin), `solicitations`, `revenue` (somme des `Payment` `SUCCESSFUL`, `paidAt ?? createdAt`) |
+
+L'historique reconstruit l'état passé à partir des dates (`createdAt`, `startDate`/`endDate`,
+`paidAt`) — les statuts courants ne sont pas rejoués. Les plans `price = 0` sont exclus des
+abonnements actifs.
 
 ## Avis et réputation (Sprint 11)
 

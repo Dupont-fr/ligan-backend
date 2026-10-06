@@ -2,9 +2,13 @@ import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity } from '../../models/Activity.js';
 import { BusinessEvent, BUSINESS_EVENT_TYPES, type BusinessEventType } from '../../models/BusinessEvent.js';
+import { Payment } from '../../models/Payment.js';
+import { Plan } from '../../models/Plan.js';
+import { Solicitation } from '../../models/Solicitation.js';
+import { Subscription } from '../../models/Subscription.js';
 import { User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
-import type { StatsQueryInput, TrackEventInput } from './validator.js';
+import type { HistoryQueryInput, StatsQueryInput, TrackEventInput } from './validator.js';
 
 /** Enregistre une interaction visiteur sur une activité validée (Sprint 10). */
 export async function trackEvent(req: Request, res: Response) {
@@ -143,5 +147,88 @@ export async function platformOverview(req: Request, res: Response) {
     totals,
     total: sum(totals),
     byActivity,
+  });
+}
+
+/** Une entrée des courbes d'évolution (cumul jusqu'à la fin du bucket). */
+interface HistoryPoint {
+  date: string;
+  users: number;
+  activities: number;
+  activeSubs: number;
+  solicitations: number;
+  revenue: number;
+}
+
+/**
+ * Évolution dans le temps (graphiques admin) : totaux cumulés par jour
+ * (30/90 jours) ou par mois (12 mois) — utilisateurs, activités créées,
+ * abonnements payants actifs à l'instant t, sollicitations et revenus
+ * encaissés (paiements SUCCESSFUL).
+ */
+export async function platformHistory(req: Request, res: Response) {
+  const { range } = req.validQuery as HistoryQueryInput;
+  const DAY_MS = 86_400_000;
+  const monthly = range === '12mo';
+  const days = range === '30d' ? 30 : range === '90d' ? 90 : 365;
+  const now = Date.now();
+
+  // Plancher à minuit UTC (ou au 1er du mois) : buckets réguliers, clés ISO.
+  const from = new Date(now - days * DAY_MS);
+  from.setUTCHours(0, 0, 0, 0);
+  if (monthly) from.setUTCDate(1);
+
+  const buckets: Array<{ key: string; end: number }> = [];
+  for (const cursor = new Date(from); cursor.getTime() <= now; ) {
+    const end = new Date(cursor);
+    if (monthly) end.setUTCMonth(end.getUTCMonth() + 1);
+    else end.setUTCDate(end.getUTCDate() + 1);
+    buckets.push({
+      key: monthly ? cursor.toISOString().slice(0, 7) : cursor.toISOString().slice(0, 10),
+      end: Math.min(end.getTime(), now + 1),
+    });
+    if (monthly) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    else cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  // Les plans gratuits (price = 0) n'entrent pas dans « abonnements actifs ».
+  const paidPlans = await Plan.find({ price: { $gt: 0 } }).select('_id').lean();
+
+  const [userRows, activityRows, solicitRows, paymentRows, subRows] = await Promise.all([
+    User.find({}).select('createdAt').lean(),
+    Activity.find({}).select('createdAt').lean(),
+    Solicitation.find({}).select('createdAt').lean(),
+    Payment.find({ status: 'SUCCESSFUL' }).select('amount paidAt createdAt').lean(),
+    Subscription.find({ planId: { $in: paidPlans.map((p) => p._id) } })
+      .select('startDate endDate')
+      .lean(),
+  ]);
+
+  const userTimes = userRows.map((d) => d.createdAt.getTime());
+  const activityTimes = activityRows.map((d) => d.createdAt.getTime());
+  const solicitTimes = solicitRows.map((d) => d.createdAt.getTime());
+  const paymentTimes = paymentRows.map((p) => ({
+    t: (p.paidAt ?? p.createdAt).getTime(),
+    amount: p.amount ?? 0,
+  }));
+  const subs = subRows.map((s) => ({
+    start: s.startDate.getTime(),
+    end: s.endDate ? s.endDate.getTime() : null,
+  }));
+
+  const points: HistoryPoint[] = buckets.map((b) => ({
+    date: b.key,
+    users: userTimes.filter((t) => t < b.end).length,
+    activities: activityTimes.filter((t) => t < b.end).length,
+    activeSubs: subs.filter((s) => s.start < b.end && (s.end === null || s.end > b.end)).length,
+    solicitations: solicitTimes.filter((t) => t < b.end).length,
+    revenue: paymentTimes.filter((p) => p.t < b.end).reduce((total, p) => total + p.amount, 0),
+  }));
+
+  return success(res, {
+    range,
+    granularity: monthly ? 'month' : 'day',
+    from: from.toISOString(),
+    points,
   });
 }
