@@ -241,6 +241,10 @@ défaut 20), `page` (défaut 1).
 - Collation `fr` (strength 2) : tris et égalités insensibles casse/accents.
 - 400 si `latitude` seule (ou inverse), hors plage, `radius` hors bornes, `sort`/`page` invalides.
   `/search` est déclaré avant `/:slug`.
+- **`GET /api/businesses/recent-by-category`** (public, landing) : `rows[]` — les 2 catégories
+  comptant le plus d'activités `APPROVED` (tri count desc puis alphabétique), chacune avec
+  `count` et ses 5 dernières `items[]` enrichies (`planCode` + `isVerified`, comme `/search`).
+  Route déclarée avant `/:slug`.
 
 ## Analytics (Sprint 10)
 

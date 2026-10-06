@@ -100,6 +100,105 @@ function isOpenAt(row: ActivityDocument): boolean {
 }
 
 /**
+ * Enrichissement Sprint 14 « Premium et visibilité » : owner vérifié
+ * (filtre `verified` optionnel) + plan effectif de l'abonnement
+ * (FREE/PRO/PREMIUM) calculé à la volée + `rank` pour le boost.
+ */
+function enrichStages(now: Date, verified?: boolean): PipelineStage[] {
+  return [
+    { $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' } },
+    ...(verified !== undefined ? [{ $match: { 'proOwner.isVerified': verified } } as PipelineStage.Match] : []),
+    {
+      $lookup: {
+        from: 'subscriptions',
+        let: { proId: '$professionalId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$userId', '$$proId'] },
+                  { $eq: ['$status', 'ACTIVE'] },
+                  { $or: [{ $eq: ['$endDate', null] }, { $gt: ['$endDate', now] }] },
+                ],
+              },
+            },
+          },
+          { $lookup: { from: 'plans', localField: 'planId', foreignField: '_id', as: 'planDoc' } },
+          { $unwind: { path: '$planDoc', preserveNullAndEmptyArrays: true } },
+          { $project: { _id: 0, code: '$planDoc.code' } },
+        ],
+        as: 'subPlan',
+      },
+    },
+    {
+      $addFields: {
+        isVerified: { $arrayElemAt: ['$proOwner.isVerified', 0] },
+        planCode: { $arrayElemAt: ['$subPlan.code', 0] },
+      },
+    },
+    {
+      $addFields: {
+        // Position prioritaire : PREMIUM > PRO > FREE (triées ensuite sur `rank`).
+        rank: {
+          $switch: {
+            branches: [
+              { case: { $eq: ['$planCode', 'PREMIUM'] }, then: 2 },
+              { case: { $eq: ['$planCode', 'PRO'] }, then: 1 },
+            ],
+            default: 0,
+          },
+        },
+      },
+    },
+  ];
+}
+
+/**
+ * Rangées « activités récentes » de la landing : les 2 catégories comptant
+ * le plus d'activités approuvées, avec leurs 5 dernières activités chacune.
+ */
+export async function recentByCategory(_req: Request, res: Response) {
+  const groups = await Activity.aggregate<{ _id: string; count: number }>(
+    [
+      { $match: { status: 'APPROVED' } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 2 },
+    ],
+    { collation: COLLATION },
+  );
+
+  const now = new Date();
+  const rows = await Promise.all(
+    groups.map(async (g) => {
+      const docs = (await Activity.aggregate(
+        [
+          { $match: { status: 'APPROVED', category: g._id } },
+          ...enrichStages(now),
+          { $sort: { createdAt: -1 } },
+          { $limit: 5 },
+          { $project: { proOwner: 0, subPlan: 0, rank: 0 } },
+        ],
+        { collation: COLLATION },
+      )) as SearchRow[];
+
+      return {
+        category: String(g._id),
+        count: g.count,
+        items: docs.map((row) => ({
+          ...toPublicActivity(row),
+          isVerified: row.isVerified === true,
+          planCode: row.planCode ?? 'FREE',
+        })),
+      };
+    }),
+  );
+
+  return success(res, { rows });
+}
+
+/**
  * Recherche géolocalisée (Sprint 5) + filtres et tri (Sprint 6).
  * `openNow` est appliqué en mémoire après l'agrégation (volume MVP) — d'où
  * l'absence de `$limit` dans le pipeline dans ce cas.
@@ -145,56 +244,7 @@ export async function searchBusinesses(req: Request, res: Response) {
   // Sprint 14 « Premium et visibilité » : enrichissement du pipeline —
   // vérification du propriétaire (badge + filtre `verified`) et plan effectif
   // de l'abonnement (FREE/PRO/PREMIUM) calculé à la volée pour le boost.
-  const now = new Date();
-  const enrich: PipelineStage[] = [
-    { $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' } },
-    ...(p.verified !== undefined
-      ? [{ $match: { 'proOwner.isVerified': p.verified } } as PipelineStage.Match]
-      : []),
-    {
-      $lookup: {
-        from: 'subscriptions',
-        let: { proId: '$professionalId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$userId', '$$proId'] },
-                  { $eq: ['$status', 'ACTIVE'] },
-                  { $or: [{ $eq: ['$endDate', null] }, { $gt: ['$endDate', now] }] },
-                ],
-              },
-            },
-          },
-          { $lookup: { from: 'plans', localField: 'planId', foreignField: '_id', as: 'planDoc' } },
-          { $unwind: { path: '$planDoc', preserveNullAndEmptyArrays: true } },
-          { $project: { _id: 0, code: '$planDoc.code' } },
-        ],
-        as: 'subPlan',
-      },
-    },
-    {
-      $addFields: {
-        isVerified: { $arrayElemAt: ['$proOwner.isVerified', 0] },
-        planCode: { $arrayElemAt: ['$subPlan.code', 0] },
-      },
-    },
-    {
-      $addFields: {
-        // Position prioritaire : PREMIUM > PRO > FREE (triées ensuite sur `rank`).
-        rank: {
-          $switch: {
-            branches: [
-              { case: { $eq: ['$planCode', 'PREMIUM'] }, then: 2 },
-              { case: { $eq: ['$planCode', 'PRO'] }, then: 1 },
-            ],
-            default: 0,
-          },
-        },
-      },
-    },
-  ];
+  const enrich = enrichStages(new Date(), p.verified);
   const strip: PipelineStage = { $project: { proOwner: 0, subPlan: 0, rank: 0 } };
 
   // Tri : la position prioritaire (rank) domine, puis le critère demandé —
