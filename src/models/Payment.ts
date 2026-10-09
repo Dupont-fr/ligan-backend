@@ -25,6 +25,9 @@ const paymentSchema = new Schema(
   { timestamps: true },
 );
 
+// Sprint 15 — historique des revenus (paiements réussis par date de paiement).
+paymentSchema.index({ status: 1, paidAt: -1 });
+
 export type PaymentDocument = InferSchemaType<typeof paymentSchema>;
 export type PaymentDoc = HydratedDocument<PaymentDocument>;
 

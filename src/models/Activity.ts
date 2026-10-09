@@ -80,6 +80,12 @@ const activitySchema = new Schema(
 );
 
 activitySchema.index({ geo: '2dsphere' });
+// Sprint 15 — index composés couvrant les filtres/tris de la recherche et
+// des rangées récentes : $match { status, category/city } puis tri createdAt.
+activitySchema.index({ status: 1, category: 1 });
+activitySchema.index({ status: 1, 'address.city': 1 });
+activitySchema.index({ status: 1, createdAt: -1 });
+activitySchema.index({ status: 1, professionalId: 1 });
 
 /** Garantit un slug à chaque écriture (couvre les créations sans slug). */
 activitySchema.pre('save', async function () {

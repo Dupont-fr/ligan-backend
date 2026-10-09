@@ -19,7 +19,7 @@ Développement strictement sprint par sprint. Chaque sprint se termine par un co
 | 12 | Abonnements (FREE / PRO / PREMIUM) — catalogue public, checkout mobile money (FeexPay, mock sans clés), webhook + re-vérification, statut/expiration, downgrade FREE, prix gérés en base (admin) | ✅ Terminé |
 | 13 | Paiements (abstraction Mobile Money / Orange Money / MTN MoMo) — opérateurs dynamiques (`GET /api/payments/operators`, cache 1 h), flux OTP (`otp_code` + champ USSD côté client), provider SebPay derrière l'interface `PaymentProvider` | ✅ Terminé |
 | 14 | Premium et visibilité (vérifié, mise en avant, position prioritaire) — boost PREMIUM/PRO en tête des résultats (`rank` calculé à la volée), badges « Premium » et « Vérifié » sur cartes + fiche, `planCode` exposé par la recherche et la fiche | ✅ Terminé |
-| 15 | Optimisation (performance, sécurité, SEO, index) | À venir |
+| 15 | Optimisation (performance, sécurité, SEO, index) — gzip API, index composés recherche/analytique, titres + descriptions par route, Open Graph, JSON-LD, robots.txt + sitemap.xml, code splitting par route (bundle initial 685 → 279 ko) | ✅ Terminé |
 | 16 | Tests (unitaires, intégration, frontend, sécurité) | À venir |
 | 17 | Déploiement + documentation | À venir |
 | 18 | Préparation au lancement (densité locale 50–100 pros sur une ville cible) | À venir |

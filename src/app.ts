@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -26,6 +27,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
+// Sprint 15 — gzip/deflate des réponses API > 1 ko (listes, agrégats analytics).
+app.use(compression());
 app.use(
   cors({
     origin: env.isProduction ? env.frontendUrl : true,
