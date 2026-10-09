@@ -10,7 +10,10 @@ const env = {
   appName: required('APP_NAME', 'LIGAN+'),
   nodeEnv,
   isProduction: nodeEnv === 'production',
-  port: Number(process.env.PORT ?? 5000),
+  // `Number('')` vaut 0 (truthy) : une variable PORT vide ferait écouter le
+  // serveur sur le port 0 au lieu du fallback. On retombe sur 5000 si absente
+  // ou invalide ; Render écrase ensuite avec son propre PORT.
+  port: Number(process.env.PORT) || 5000,
   mongoUri: required('MONGODB_URI', ''),
   frontendUrl: required('FRONTEND_URL', 'http://localhost:5173'),
   jwtSecret: required('JWT_SECRET', 'change-me-in-production'),
