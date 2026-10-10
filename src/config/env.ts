@@ -23,7 +23,9 @@ const env = {
   email: {
     apiKey: required('BREVO_API_KEY', ''),
     host: required('EMAIL_HOST', 'smtp-relay.brevo.com'),
-    port: Number(process.env.EMAIL_PORT ?? 587),
+    // Même piège que PORT : `Number('')` vaut 0 et ouvrirait un SMTP sur un
+    // port invalide. On retombe toujours sur 587 si la variable est vide.
+    port: Number(process.env.EMAIL_PORT) || 587,
     user: required('EMAIL_USER', ''),
     pass: required('EMAIL_PASS', ''),
     fromName: required('EMAIL_FROM_NAME', 'LIGAN+'),
