@@ -15,7 +15,9 @@ const env = {
   // ou invalide ; Render écrase ensuite avec son propre PORT.
   port: Number(process.env.PORT) || 5000,
   mongoUri: required('MONGODB_URI', ''),
-  frontendUrl: required('FRONTEND_URL', 'http://localhost:5173'),
+  // Normalisé sans `/` final : la comparaison des origines CORS est stricte
+  // (https://x.fr/ ≠ https://x.fr) et ferait échouer le preflight en prod.
+  frontendUrl: required('FRONTEND_URL', 'http://localhost:5173').replace(/\/+$/, ''),
   jwtSecret: required('JWT_SECRET', 'change-me-in-production'),
   jwtRefreshSecret: required('JWT_REFRESH_SECRET', 'change-me-in-production'),
   accessTokenTtl: required('ACCESS_TOKEN_TTL', '15m'),

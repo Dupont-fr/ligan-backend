@@ -29,9 +29,25 @@ app.set('trust proxy', 1);
 app.use(helmet());
 // Sprint 15 — gzip/deflate des réponses API > 1 ko (listes, agrégats analytics).
 app.use(compression());
+/** Normalise une origine pour la comparaison CORS stricte : sans `/` final,
+ *  sans casse (les origines sont ASCII, mais `Origin` peut varier). */
+function normalizeOrigin(value: string): string {
+  return value.replace(/\/+$/, '').toLowerCase();
+}
+
+// En dev on accepte n'importe quelle origine ; en prod uniquement FRONTEND_URL,
+// comparée au format exact de l'en-tête `Origin` (sans `/` final ni casse).
+const allowedOrigin = env.isProduction ? normalizeOrigin(env.frontendUrl) : null;
+
 app.use(
   cors({
-    origin: env.isProduction ? env.frontendUrl : true,
+    origin: (origin, callback) => {
+      // Pas d'`Origin` (same-origin, curl, appel serveur) : on n'ajoute
+      // aucun header CORS, le navigateur n'en a pas besoin.
+      if (!origin) return callback(null, false);
+      const ok = allowedOrigin === null || normalizeOrigin(origin) === allowedOrigin;
+      callback(null, ok);
+    },
     credentials: true,
   }),
 );
