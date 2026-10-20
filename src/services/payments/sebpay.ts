@@ -53,14 +53,20 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
     throw new ProviderError('Le service de paiement est momentanément injoignable', 502);
   }
 
+  const rawText = await res.text().catch(() => '');
   let payload: SebPayEnvelope<T> | null = null;
   try {
-    payload = (await res.json()) as SebPayEnvelope<T>;
+    payload = JSON.parse(rawText) as SebPayEnvelope<T>;
   } catch {
-    /* réponse sans corps */
+    /* réponse sans corps JSON */
   }
   if (!res.ok || payload?.success === false) {
     const providerMessage = payload?.message ?? '';
+    // Log brut : sans lui, SebPay masque le motif réel derrière un 502 générique
+    // (« Failed to initiate collection » n'indique ni le champ ni la valeur fautive).
+    logger.error(
+      `SebPay ${method} ${path} → HTTP ${res.status} | ${providerMessage || '(pas de message)'} | corps: ${rawText.slice(0, 800)}`,
+    );
     throw new ProviderError(providerMessage || `SebPay a répondu ${res.status}`, 502);
   }
   if (!payload?.data) {
@@ -72,7 +78,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 /**
  * Format international attendu par SebPay : chiffres uniquement, sans « + ».
  * Le numéro local (9 chiffres, sans indicatif) est préfixé par l'indicatif pays
- * (PHONE_COUNTRY_CODE, ex. 229 pour le Bénin) ; un numéro déjà international
+ * (PHONE_COUNTRY_CODE, ex. 237 pour le Cameroun) ; un numéro déjà international
  * (avec « + » ou plus long que 9 chiffres) est laissé tel quel.
  */
 function normalizePhone(phone: string): string {
