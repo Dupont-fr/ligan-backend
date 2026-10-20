@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
-const phoneRegex = /^\+?[0-9\s().-]{8,20}$/;
+/** Téléphone : 9 chiffres, sans indicatif (le code pays est ajouté côté client). */
+const phoneRegex = /^\d{9}$/;
 /** Photos : URL Cloudinary (upload fait côté client) ou fichier local legacy /uploads/. */
 const photoUrlRegex = /^(https:\/\/res\.cloudinary\.com\/[A-Za-z0-9/_.-]+|\/uploads\/[A-Za-z0-9._-]+)$/;
 

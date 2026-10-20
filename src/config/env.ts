@@ -43,7 +43,12 @@ const env = {
     sebpayPublicKey: required('SEBPAY_PUBLIC_KEY', ''),
     sebpaySecretKey: required('SEBPAY_SECRET_KEY', ''),
     sebpayCurrency: required('SEBPAY_CURRENCY', 'XAF'),
-    sebpayCountry: required('SEBPAY_COUNTRY', 'CM').toUpperCase(),
+    sebpayCountry: required('SEBPAY_COUNTRY', 'BJ').toUpperCase(),
+    /**
+     * Indicatif pays ajouté aux numéros locaux (9 chiffres) avant l'envoi à
+     * SebPay, qui attend un format international sans « + » (ex. « 229… »).
+     */
+    phoneCountryCode: required('PHONE_COUNTRY_CODE', '229').replace(/\D/g, ''),
     /** URL publique du backend — sert à construire le callback_url des collectes. */
     publicApiUrl: (process.env.PUBLIC_API_URL ?? '').replace(/\/+$/, ''),
   },

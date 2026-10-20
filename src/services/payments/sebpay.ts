@@ -69,9 +69,16 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return payload.data;
 }
 
-/** Format international attendu par SebPay : chiffres uniquement, sans « + ». */
+/**
+ * Format international attendu par SebPay : chiffres uniquement, sans « + ».
+ * Le numéro local (9 chiffres, sans indicatif) est préfixé par l'indicatif pays
+ * (PHONE_COUNTRY_CODE, ex. 229 pour le Bénin) ; un numéro déjà international
+ * (avec « + » ou plus long que 9 chiffres) est laissé tel quel.
+ */
 function normalizePhone(phone: string): string {
-  return phone.replace(/^\+/, '').replace(/[\s().-]/g, '');
+  const digits = phone.replace(/\D/g, '');
+  const hasCountryCode = phone.trim().startsWith('+') || digits.length > 9;
+  return hasCountryCode ? digits : `${env.payment.phoneCountryCode}${digits}`;
 }
 
 /**

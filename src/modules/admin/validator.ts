@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+/** Téléphone : 9 chiffres, sans indicatif (le code pays est ajouté côté client). */
+const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{9}$/, 'Le numéro de téléphone doit contenir 9 chiffres')
+  .optional()
+  .or(z.literal(''));
 const emailSchema = z.string().trim().toLowerCase().email('Adresse email invalide').max(254);
 const passwordSchema = z
   .string()
@@ -14,12 +21,7 @@ export const createUserSchema = z.object({
   firstName: z.string().trim().min(2, 'Le prénom doit contenir au moins 2 caractères').max(60),
   lastName: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères').max(60),
   email: emailSchema,
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
-    .optional()
-    .or(z.literal('')),
+  phone: phoneSchema,
   password: passwordSchema,
   role: z.enum(['CUSTOMER', 'PROFESSIONAL', 'ADMIN']).default('CUSTOMER'),
 });
@@ -31,12 +33,7 @@ export const updateUserSchema = z
   .object({
     firstName: z.string().trim().min(2, 'Le prénom doit contenir au moins 2 caractères').max(60).optional(),
     lastName: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères').max(60).optional(),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
-      .optional()
-      .or(z.literal('')),
+    phone: phoneSchema,
     role: z.enum(['CUSTOMER', 'PROFESSIONAL', 'ADMIN']).optional(),
     isVerified: z.boolean().optional(),
   })

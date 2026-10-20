@@ -12,6 +12,13 @@ const codeSchema = z
   .string()
   .trim()
   .regex(/^\d{6}$/, 'Le code doit contenir exactement 6 chiffres');
+/** Téléphone : 9 chiffres, sans indicatif (le code pays est ajouté côté client). */
+const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{9}$/, 'Le numéro de téléphone doit contenir 9 chiffres')
+  .optional()
+  .or(z.literal(''));
 
 export const registerSchema = z.object({
   firstName: z
@@ -25,12 +32,7 @@ export const registerSchema = z.object({
     .min(2, 'Le nom doit contenir au moins 2 caractères')
     .max(60, 'Le nom est trop long'),
   email: emailSchema,
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
-    .optional()
-    .or(z.literal('')),
+  phone: phoneSchema,
   password: passwordSchema,
   role: z.enum(['CUSTOMER', 'PROFESSIONAL']).default('CUSTOMER'),
 });
@@ -71,13 +73,6 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
-
-const phoneSchema = z
-  .string()
-  .trim()
-  .regex(/^\+?[0-9\s().-]{8,20}$/, 'Numéro de téléphone invalide')
-  .optional()
-  .or(z.literal(''));
 
 export const updateMeSchema = z
   .object({
