@@ -10,6 +10,17 @@ export const trackEventSchema = z.object({
 });
 export type TrackEventInput = z.infer<typeof trackEventSchema>;
 
+export const trackVisitSchema = z.object({
+  visitorId: z
+    .string()
+    .trim()
+    .min(8)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, 'Identifiant invalide'),
+  path: z.string().trim().min(1).max(300),
+});
+export type TrackVisitInput = z.infer<typeof trackVisitSchema>;
+
 export const statsQuerySchema = z.object({
   period: z.enum(['today', '7d', '30d']).default('7d'),
 });

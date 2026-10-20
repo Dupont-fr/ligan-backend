@@ -7,8 +7,9 @@ import { Plan } from '../../models/Plan.js';
 import { Solicitation } from '../../models/Solicitation.js';
 import { Subscription } from '../../models/Subscription.js';
 import { User } from '../../models/User.js';
+import { Visit } from '../../models/Visit.js';
 import { success } from '../../utils/ApiResponse.js';
-import type { HistoryQueryInput, StatsQueryInput, TrackEventInput } from './validator.js';
+import type { HistoryQueryInput, StatsQueryInput, TrackEventInput, TrackVisitInput } from './validator.js';
 
 /** Enregistre une interaction visiteur sur une activité validée (Sprint 10). */
 export async function trackEvent(req: Request, res: Response) {
@@ -24,6 +25,15 @@ export async function trackEvent(req: Request, res: Response) {
     type: input.type,
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
   });
+
+  return success(res, { tracked: true }, 201);
+}
+
+/** Enregistre une page vue du site public (visiteur anonyme, sans IP ni user-agent). */
+export async function trackVisit(req: Request, res: Response) {
+  const input = req.validBody as TrackVisitInput;
+
+  await Visit.create({ visitorId: input.visitorId, path: input.path });
 
   return success(res, { tracked: true }, 201);
 }
@@ -158,13 +168,16 @@ interface HistoryPoint {
   activeSubs: number;
   solicitations: number;
   revenue: number;
+  /** Visiteurs uniques du bucket (non cumulé). */
+  visitors: number;
 }
 
 /**
  * Évolution dans le temps (graphiques admin) : totaux cumulés par jour
  * (30/90 jours) ou par mois (12 mois) — utilisateurs, activités créées,
  * abonnements payants actifs à l'instant t, sollicitations et revenus
- * encaissés (paiements SUCCESSFUL).
+ * encaissés (paiements SUCCESSFUL) — plus les visiteurs uniques par bucket
+ * (trafic du site public).
  */
 export async function platformHistory(req: Request, res: Response) {
   const { range } = req.validQuery as HistoryQueryInput;
@@ -194,15 +207,46 @@ export async function platformHistory(req: Request, res: Response) {
   // Les plans gratuits (price = 0) n'entrent pas dans « abonnements actifs ».
   const paidPlans = await Plan.find({ price: { $gt: 0 } }).select('_id').lean();
 
-  const [userRows, activityRows, solicitRows, paymentRows, subRows] = await Promise.all([
-    User.find({}).select('createdAt').lean(),
-    Activity.find({}).select('createdAt').lean(),
-    Solicitation.find({}).select('createdAt').lean(),
-    Payment.find({ status: 'SUCCESSFUL' }).select('amount paidAt createdAt').lean(),
-    Subscription.find({ planId: { $in: paidPlans.map((p) => p._id) } })
-      .select('startDate endDate')
-      .lean(),
-  ]);
+  const visitMatch = { createdAt: { $gte: from } };
+
+  const [userRows, activityRows, solicitRows, paymentRows, subRows, visitorRows, uniqueRows, pageViews] =
+    await Promise.all([
+      User.find({}).select('createdAt').lean(),
+      Activity.find({}).select('createdAt').lean(),
+      Solicitation.find({}).select('createdAt').lean(),
+      Payment.find({ status: 'SUCCESSFUL' }).select('amount paidAt createdAt').lean(),
+      Subscription.find({ planId: { $in: paidPlans.map((p) => p._id) } })
+        .select('startDate endDate')
+        .lean(),
+      // Visiteurs uniques par bucket (jour UTC ou mois UTC).
+      Visit.aggregate<{ _id: string; visitors: number }>([
+        { $match: visitMatch },
+        {
+          $project: {
+            bucket: {
+              $dateToString: {
+                format: monthly ? '%Y-%m' : '%Y-%m-%d',
+                date: '$createdAt',
+                timezone: 'UTC',
+              },
+            },
+            visitorId: 1,
+          },
+        },
+        { $group: { _id: { bucket: '$bucket', visitorId: '$visitorId' } } },
+        { $group: { _id: '$_id.bucket', visitors: { $sum: 1 } } },
+      ]),
+      // Visiteurs uniques sur toute la période.
+      Visit.aggregate<{ n: number }>([
+        { $match: visitMatch },
+        { $group: { _id: '$visitorId' } },
+        { $count: 'n' },
+      ]),
+      // Pages vues sur toute la période.
+      Visit.countDocuments(visitMatch),
+    ]);
+
+  const visitorsByBucket = new Map(visitorRows.map((row) => [row._id, row.visitors]));
 
   const userTimes = userRows.map((d) => d.createdAt.getTime());
   const activityTimes = activityRows.map((d) => d.createdAt.getTime());
@@ -223,12 +267,15 @@ export async function platformHistory(req: Request, res: Response) {
     activeSubs: subs.filter((s) => s.start < b.end && (s.end === null || s.end > b.end)).length,
     solicitations: solicitTimes.filter((t) => t < b.end).length,
     revenue: paymentTimes.filter((p) => p.t < b.end).reduce((total, p) => total + p.amount, 0),
+    visitors: visitorsByBucket.get(b.key) ?? 0,
   }));
 
   return success(res, {
     range,
     granularity: monthly ? 'month' : 'day',
     from: from.toISOString(),
+    uniqueVisitors: uniqueRows[0]?.n ?? 0,
+    pageViews,
     points,
   });
 }
