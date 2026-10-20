@@ -6,7 +6,8 @@ export interface CreateTransactionInput {
   /** Notre référence interne (paymentId) — envoyée comme `external_reference`. */
   reference: string;
   phoneNumber: string;
-  network: 'mtn' | 'orange';
+  /** Slug d'opérateur SebPay (ex. « orange-cm »). */
+  network: string;
   firstName?: string;
   lastName?: string;
   email?: string;

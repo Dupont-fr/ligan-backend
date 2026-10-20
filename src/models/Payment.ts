@@ -3,8 +3,11 @@ import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mong
 export const PAYMENT_STATUSES = ['PENDING', 'SUCCESSFUL', 'FAILED', 'EXPIRED'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const PAYMENT_NETWORKS = ['mtn', 'orange'] as const;
-export type PaymentNetwork = (typeof PAYMENT_NETWORKS)[number];
+/**
+ * Slug d'opérateur mobile money tel que fourni par SebPay (ex. « orange-cm »,
+ * « mtn-cm »). Volontairement libre : la liste des opérateurs varie par pays.
+ */
+export type PaymentNetwork = string;
 
 const paymentSchema = new Schema(
   {
@@ -16,7 +19,7 @@ const paymentSchema = new Schema(
     provider: { type: String, enum: ['SEBPAY', 'MOCK'], required: true },
     /** Référence côté fournisseur (SebPay `transaction_id`) — clé de rapprochement du webhook. */
     providerRef: { type: String, index: true, unique: true, sparse: true },
-    network: { type: String, enum: PAYMENT_NETWORKS, default: undefined },
+    network: { type: String, trim: true, maxlength: 40, default: undefined },
     phoneNumber: { type: String, trim: true, maxlength: 30, default: undefined },
     status: { type: String, enum: PAYMENT_STATUSES, default: 'PENDING', index: true },
     failureReason: { type: String, trim: true, maxlength: 300, default: undefined },
