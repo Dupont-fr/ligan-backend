@@ -40,7 +40,7 @@ const checkoutPhoneLimiter = rateLimit({
 
 const pollLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 60,
+  limit: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Trop de vérifications, réessayez plus tard' },
