@@ -17,6 +17,35 @@ interface SebPayEnvelope<T> {
   success?: boolean;
   data?: T;
   message?: string;
+  errors?: { code?: string };
+}
+
+/**
+ * Messages d'erreur SebPay → message français exploitable côté client.
+ * Les codes sont ceux observés sur l'API (vérifiés par sonde) :
+ * PAYMENT_DECLINED, VALIDATION_ERROR, IP_NOT_ALLOWED, EXTERNAL_REFERENCE_CONFLICT.
+ */
+const SEBPAY_ERROR_MESSAGES: Record<string, string> = {
+  PAYMENT_DECLINED:
+    "Paiement refusé par l'opérateur mobile money. Vérifiez le numéro de téléphone et l'opérateur choisi, puis réessayez.",
+  VALIDATION_ERROR:
+    'Données de paiement invalides selon SebPay (configuration ou format de la requête).',
+  IP_NOT_ALLOWED:
+    "L'adresse IP du serveur n'est pas autorisée par SebPay. Contactez le support SebPay pour whitelister l'IP.",
+  EXTERNAL_REFERENCE_CONFLICT:
+    'Cette référence de paiement a déjà été utilisée avec des paramètres différents.',
+  INTERNAL_ERROR:
+    'Erreur interne SebPay. Réessayez dans quelques instants.',
+};
+
+function sebpayErrorMessage(code: string | undefined, fallback: string, status?: number): string {
+  if (code && SEBPAY_ERROR_MESSAGES[code]) return SEBPAY_ERROR_MESSAGES[code];
+  // SebPay ne renvoie pas toujours de code d'erreur : un 422 signifie toujours
+  // « payload rejeté à la validation ».
+  if (status === 422) return SEBPAY_ERROR_MESSAGES.VALIDATION_ERROR;
+  if (status === 409) return SEBPAY_ERROR_MESSAGES.EXTERNAL_REFERENCE_CONFLICT;
+  if (status === 403) return SEBPAY_ERROR_MESSAGES.IP_NOT_ALLOWED;
+  return fallback;
 }
 
 interface SebPayCollection {
@@ -44,12 +73,14 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   }
   if (!raw.ok || payload?.success === false) {
     const providerMessage = payload?.message ?? '';
+    const providerCode = payload?.errors?.code;
     // Log brut : sans lui, SebPay masque le motif réel derrière un 502 générique
     // (« Failed to initiate collection » n'indique ni le champ ni la valeur fautive).
     logger.error(
-      `SebPay ${method} ${path} → HTTP ${raw.status} | ${providerMessage || '(pas de message)'} | corps: ${raw.body.slice(0, 800)}`,
+      `SebPay ${method} ${path} → HTTP ${raw.status} | ${providerMessage || '(pas de message)'} | code: ${providerCode || '-'} | corps: ${raw.body.slice(0, 800)}`,
     );
-    throw new ProviderError(providerMessage || `SebPay a répondu ${raw.status}`, 502);
+    const fallback = providerMessage || `SebPay a répondu ${raw.status}`;
+    throw new ProviderError(sebpayErrorMessage(providerCode, fallback, raw.status), 502);
   }
   if (!payload?.data) {
     throw new ProviderError('Réponse vide du service SebPay', 502);
@@ -120,9 +151,14 @@ export const sebpayProvider: PaymentProvider = {
     const payload: Record<string, unknown> = {
       amount: input.amount,
       currency: env.payment.sebpayCurrency,
+      // OBLIGATOIRE : sans `country`, l'API SebPay répond 422 « Validation Error. »
+      // (vérifié par sonde multi-formats sur les 6 combinaisons opérateur/téléphone).
+      country: env.payment.sebpayCountry,
       phone: phoneDigits,
       operator: input.network,
+      // OBLIGATOIRE : SebPay rejette la collecte sans external_reference.
       external_reference: input.reference,
+      ...(input.otpCode ? { otp_code: input.otpCode } : {}),
       ...(env.payment.publicApiUrl
         ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
         : {}),

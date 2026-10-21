@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { healthCheck } from './controller.js';
+import { requireAuth, requireRole } from '../../middlewares/auth.js';
 
 const router = Router();
 
@@ -51,8 +52,9 @@ router.get('/sebpay-debug', async (_req: Request, res: Response) => {
 
 // Route temporaire : teste plusieurs formats de payload de collecte SebPay et
 // s'arrête dès que l'un est accepté. Permet d'identifier le format exact
-// attendu par l'API sans deviner. À SUPPRIMER une fois le format trouvé.
-router.get('/sebpay-probe', async (req: Request, res: Response) => {
+// attendu par l'API sans deviner. Réservée aux administrateurs (crée de
+// vraies collectes). À SUPPRIMER une fois le format trouvé.
+router.get('/sebpay-probe', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response) => {
   const env = (await import('../../config/env.js')).default;
   if (!env.payment.sebpayPublicKey || !env.payment.sebpaySecretKey) {
     return res.status(400).json({ success: false, message: 'Clés SebPay absentes' });
