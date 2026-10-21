@@ -25,7 +25,7 @@ router.get(
   '/sebpay-debug',
   requireAuth,
   requireRole('ADMIN'),
-  async (_req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const env = (await import('../../config/env.js')).default;
     const out: Record<string, unknown> = {
       country: env.payment.sebpayCountry,
@@ -59,6 +59,27 @@ router.get(
       out.lastExchange = getLastSebPayExchange();
     } catch {
       /* module indisponible : on ignore */
+    }
+    // Détail d'une collection (statut, motif côté opérateur) :
+    // GET /api/sebpay-debug?collection=<transaction_id>
+    const collectionId = typeof req.query.collection === 'string' ? req.query.collection.trim() : '';
+    if (collectionId) {
+      try {
+        const r = await fetch(
+          `https://newapi.sebpay.bj/api/v1/collections/${encodeURIComponent(collectionId)}`,
+          {
+            headers: {
+              'X-Public-Key': env.payment.sebpayPublicKey,
+              'X-Secret-Key': env.payment.sebpaySecretKey,
+              Accept: 'application/json',
+            },
+          },
+        );
+        out.collectionHttpStatus = r.status;
+        out.collectionBody = await r.text();
+      } catch (err) {
+        out.collectionError = err instanceof Error ? err.message : String(err);
+      }
     }
     res.json({ success: true, data: out });
   },
