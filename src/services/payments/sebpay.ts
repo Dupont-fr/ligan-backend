@@ -195,64 +195,67 @@ export async function probeCollectionFormats(
   const code = operatorSlug.replace(/-.*$/, '').toUpperCase();
   const slug = operatorSlug;
 
-  const common = {
-    amount,
-    currency: env.payment.sebpayCurrency,
-    external_reference: `probe-${Date.now()}`,
-  };
   const callback = env.payment.publicApiUrl
     ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
     : {};
   const country = { country: env.payment.sebpayCountry };
 
-  const variants: { label: string; payload: Record<string, unknown> }[] = [
-    {
-      label: 'numéro local + slug opérateur + pays + devise',
-      payload: { ...common, ...country, ...callback, phone: local, operator: slug },
-    },
-    {
-      label: 'numéro international avec + + slug opérateur + pays + devise',
-      payload: { ...common, ...country, ...callback, phone: `+${intl}`, operator: slug },
-    },
-    {
-      label: 'numéro international sans + + code opérateur (MAJUSCULES) + pays + devise',
-      payload: { ...common, ...country, ...callback, phone: intl, operator: code },
-    },
-    {
-      label: 'numéro local + code opérateur (MAJUSCULES) + pays + devise',
-      payload: { ...common, ...country, ...callback, phone: local, operator: code },
-    },
-    {
-      label: 'numéro international avec + + code opérateur (MAJUSCULES) + pays + devise',
-      payload: { ...common, ...country, ...callback, phone: `+${intl}`, operator: code },
-    },
-    {
-      label: 'numéro international avec + + code opérateur, sans pays',
-      payload: { ...common, ...callback, phone: `+${intl}`, operator: code },
-    },
-    {
-      label: 'numéro local + slug opérateur, sans pays',
-      payload: { ...common, ...callback, phone: local, operator: slug },
-    },
-    {
-      label: 'objet customer imbriqué (phone + provider)',
-      payload: {
-        ...common,
-        ...country,
-        ...callback,
-        customer: { phone: `+${intl}`, provider: code },
-      },
-    },
-    {
-      label: 'objet customer imbriqué + slug opérateur',
-      payload: {
-        ...common,
-        ...country,
-        ...callback,
-        customer: { phone: `+${intl}`, provider: slug },
-      },
-    },
+  const phones: { key: string; value: string }[] = [
+    { key: 'local', value: local },
+    { key: 'intl+', value: `+${intl}` },
+    { key: 'intl', value: intl },
   ];
+  const operators: { key: string; value: string }[] = [
+    { key: 'slug', value: slug },
+    { key: 'code', value: code },
+  ];
+
+  const variants: { label: string; payload: Record<string, unknown> }[] = [];
+
+  // Chaque variante doit avoir son propre external_reference : sinon SebPay
+  // répond 409 (référence déjà utilisée) au lieu d'accepter ou refuser la
+  // collecte — ce qui masquerait le vrai résultat.
+  for (const p of phones) {
+    for (const o of operators) {
+      variants.push({
+        label: `numéro ${p.key} + opérateur ${o.key} (${o.value})`,
+        payload: {
+          amount,
+          currency: env.payment.sebpayCurrency,
+          external_reference: `probe-${Date.now()}-${variants.length}`,
+          ...country,
+          ...callback,
+          phone: p.value,
+          operator: o.value,
+        },
+      });
+    }
+  }
+
+  // Contrôles : ces deux-là doivent être rejetés en 422 (le compte est valide
+  // si et seulement si la sonde discriminate correctement).
+  variants.push({
+    label: 'CONTRÔLE : sans le champ country (doit échouer)',
+    payload: {
+      amount,
+      currency: env.payment.sebpayCurrency,
+      external_reference: `probe-${Date.now()}-ctrl1`,
+      ...callback,
+      phone: `+${intl}`,
+      operator: code,
+    },
+  });
+  variants.push({
+    label: 'CONTRÔLE : objet customer imbriqué (doit échouer)',
+    payload: {
+      amount,
+      currency: env.payment.sebpayCurrency,
+      external_reference: `probe-${Date.now()}-ctrl2`,
+      ...country,
+      ...callback,
+      customer: { phone: `+${intl}`, provider: code },
+    },
+  });
 
   const results: SebPayProbeResult[] = [];
   for (const [index, variant] of variants.entries()) {
