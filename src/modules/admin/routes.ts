@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middlewares/auth.js';
 import { validate } from '../../middlewares/validate.js';
 import {
+  adminPaymentsHealth,
   adminStats,
   createUser,
   deleteUser,
   listAdminActivities,
+  listAdminPayments,
   listAdminPlans,
   listAdminReviews,
   listUsers,
@@ -19,7 +21,9 @@ import {
   createUserSchema,
   idParamSchema,
   listActivitiesSchema,
+  listPaymentsSchema,
   listReviewsSchema,
+  paymentsHealthSchema,
   setActivityStatusSchema,
   setReviewStatusSchema,
   suspendUserSchema,
@@ -47,5 +51,9 @@ router.patch('/reviews/:id/status', validate(idParamSchema, 'params'), validate(
 // Plans et abonnements (Sprint 12)
 router.get('/plans', listAdminPlans);
 router.patch('/plans/:id', validate(idParamSchema, 'params'), validate(updatePlanSchema), updatePlan);
+
+// Paiements (diagnostic SebPay)
+router.get('/payments', validate(listPaymentsSchema, 'query'), listAdminPayments);
+router.get('/payments/health', validate(paymentsHealthSchema, 'query'), adminPaymentsHealth);
 
 export default router;

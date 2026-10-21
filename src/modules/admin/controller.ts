@@ -4,14 +4,17 @@ import type { FilterQuery } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument, type ActivityStatus } from '../../models/Activity.js';
 import { Category } from '../../models/Category.js';
+import { Payment, type PaymentDocument } from '../../models/Payment.js';
 import { Plan, toPublicPlan } from '../../models/Plan.js';
 import { Review, toPublicReview, type ReviewDocument, type ReviewStatus } from '../../models/Review.js';
 import { Solicitation } from '../../models/Solicitation.js';
 import { toPublicUser, User } from '../../models/User.js';
-import { success } from '../../utils/ApiResponse.js';
+import { paginated, success } from '../../utils/ApiResponse.js';
 import { logger } from '../../utils/logger.js';
 import type {
   AdminActivitiesInput,
+  AdminPaymentsHealthInput,
+  AdminPaymentsInput,
   AdminReviewsInput,
   CreateUserInput,
   SetActivityStatusInput,
@@ -447,7 +450,186 @@ export async function updatePlan(req: Request, res: Response) {
   }
 
   await plan.save();
-  logger.info(`Plan ${plan.code} modifié par un admin : ${changes.join(', ')}`);
+  logger.info(`Plan ${plan.code} modifiAc par un admin : ${changes.join(', ')}`);
 
   return success(res, { plan: { ...toPublicPlan(plan), isActive: plan.isActive } });
+}
+
+/* ------------------------------------------------------------------------- *
+ * Paiements — diagnostic SebPay
+ * ------------------------------------------------------------------------- */
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Extrait le motif d'erreur renvoyé par SebPay dans le corps brut stocké :
+ * { code: 'PAYMENT_DECLINED', reference: 'ERR-XXXX', transaction_id: '261…' }.
+ */
+function parseProviderError(raw?: string): { code?: string; reference?: string; message?: string } | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as {
+      message?: string;
+      errors?: { code?: string; reference?: string; transaction_id?: string };
+    };
+    const errors = parsed.errors ?? {};
+    const out: { code?: string; reference?: string; message?: string } = {};
+    if (errors.code) out.code = errors.code;
+    if (errors.reference) out.reference = errors.reference;
+    if (parsed.message) out.message = parsed.message;
+    return Object.keys(out).length > 0 ? out : undefined;
+  } catch {
+    const ref = raw.match(/"reference"\s*:\s*"(ERR-[A-Z0-9]+)"/i)?.[1];
+    return ref ? { reference: ref } : undefined;
+  }
+}
+
+/** Vue admin d'un paiement :/providerRef sert à rapprocher avec le support SebPay. */
+function toAdminPayment(payment: {
+  _id: unknown;
+  userId: unknown;
+  planId: unknown;
+  amount: number;
+  currency: string;
+  provider: string;
+  providerRef?: string;
+  network?: string;
+  phoneNumber?: string;
+  status: string;
+  failureReason?: string;
+  providerRaw?: string;
+  paidAt?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}) {
+  const user = payment.userId as { email?: string; firstName?: string; lastName?: string } | undefined;
+  const plan = payment.planId as { code?: string; name?: string; price?: number } | undefined;
+  return {
+    id: String(payment._id),
+    user: user ? { email: user.email, firstName: user.firstName, lastName: user.lastName } : undefined,
+    plan: plan ? { code: plan.code, name: plan.name, price: plan.price } : undefined,
+    amount: payment.amount,
+    currency: payment.currency,
+    provider: payment.provider,
+    status: payment.status,
+    network: payment.network,
+    phoneNumber: payment.phoneNumber,
+    providerRef: payment.providerRef,
+    providerError: parseProviderError(payment.providerRaw),
+    failureReason: payment.failureReason,
+    providerRaw: payment.providerRaw ? payment.providerRaw.slice(0, 600) : undefined,
+    paidAt: payment.paidAt,
+    createdAt: payment.createdAt,
+    updatedAt: payment.updatedAt,
+  };
+}
+
+/**
+ * Historique des paiements (admin) : filtres opérateur / statut / numéro / période.
+ * Expose les références SebPay (transaction_id + ERR-…) pour le support.
+ */
+export async function listAdminPayments(req: Request, res: Response) {
+  const q = req.validQuery as AdminPaymentsInput;
+
+  const filter: FilterQuery<PaymentDocument> = {};
+  if (q.status) filter.status = q.status;
+  if (q.network) filter.network = q.network;
+  if (q.phone) filter.phoneNumber = new RegExp(escapeRegExp(q.phone), 'i');
+  if (q.userId) filter.userId = q.userId;
+  if (q.from || q.to) {
+    filter.createdAt = {};
+    if (q.from) filter.createdAt.$gte = q.from;
+    if (q.to) filter.createdAt.$lte = q.to;
+  }
+
+  const page = q.page ?? 1;
+  const limit = q.limit ?? 50;
+
+  const [items, total] = await Promise.all([
+    Payment.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('userId', 'firstName lastName email')
+      .populate('planId', 'code name price'),
+    Payment.countDocuments(filter),
+  ]);
+
+  return paginated(res, { payments: items.map((p) => toAdminPayment(p as never)) }, {
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  });
+}
+
+/**
+ * Santé des opérateurs sur une fenêtre glissante.
+ * Signature d'un blocage côté opérateur : refus instantané (durée moyenne < 10 s)
+ * et taux de succès nul sur l'ensemble de la fenêtre.
+ */
+export async function adminPaymentsHealth(req: Request, res: Response) {
+  const { hours } = req.validQuery as AdminPaymentsHealthInput;
+  const since = new Date(Date.now() - hours * 3600 * 1000);
+
+  const rows = await Payment.aggregate([
+    { $match: { createdAt: { $gte: since } } },
+    {
+      $group: {
+        _id: { $ifNull: ['$network', 'inconnu'] },
+        attempts: { $sum: 1 },
+        approved: { $sum: { $cond: [{ $eq: ['$status', 'SUCCESSFUL'] }, 1, 0] } },
+        rejected: { $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] } },
+        expired: { $sum: { $cond: [{ $eq: ['$status', 'EXPIRED'] }, 1, 0] } },
+        pending: { $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] } },
+        avgDurationSec: { $avg: { $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000] } },
+        minDurationSec: { $min: { $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000] } },
+        maxDurationSec: { $max: { $divide: [{ $subtract: ['$updatedAt', '$createdAt'] }, 1000] } },
+      },
+    },
+    { $sort: { attempts: -1 } },
+  ]);
+
+  const operators = rows.map((row) => {
+    const approved = row.approved as number;
+    const attempts = row.attempts as number;
+    return {
+      operator: row._id as string,
+      attempts,
+      approved,
+      rejected: row.rejected as number,
+      expired: row.expired as number,
+      pending: row.pending as number,
+      successRate: attempts > 0 ? Math.round((approved / attempts) * 100) : 0,
+      avgDurationSec: Math.round(row.avgDurationSec as number),
+      minDurationSec: Math.round(row.minDurationSec as number),
+      maxDurationSec: Math.round(row.maxDurationSec as number),
+      /** Refus instantané et répété => l'opérateur refuse au niveau du compte marchand. */
+      verdict:
+        approved === 0 && (row.rejected as number) > 0
+          ? 'aucune collecte approuvée sur la fenêtre'
+          : attempts > 0 && approved / attempts < 0.2
+            ? 'taux de succès très faible'
+            : 'normal',
+    };
+  });
+
+  const recentFailures = await Payment.find({ status: 'FAILED', createdAt: { $gte: since } })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .populate('userId', 'firstName lastName email')
+    .populate('planId', 'code name price');
+
+  const lastSuccess = await Payment.find({ status: 'SUCCESSFUL' })
+    .sort({ paidAt: -1 })
+    .limit(1)
+    .populate('userId', 'firstName lastName email');
+
+  return success(res, {
+    windowHours: hours,
+    since,
+    operators,
+    recentFailures: recentFailures.map((p) => toAdminPayment(p as never)),
+    lastSuccess: lastSuccess[0] ? toAdminPayment(lastSuccess[0] as never) : null,
+  });
 }

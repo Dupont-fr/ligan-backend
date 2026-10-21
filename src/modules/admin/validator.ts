@@ -124,3 +124,21 @@ export const updatePlanSchema = z
     'Au moins un champ à modifier',
   );
 export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;
+
+export const listPaymentsSchema = z.object({
+  status: z.enum(['PENDING', 'SUCCESSFUL', 'FAILED', 'EXPIRED']).optional(),
+  /** Slug d'opérateur SebPay (mtn-cm, orange-cm…). */
+  network: z.string().trim().min(2).max(40).optional(),
+  phone: z.string().trim().regex(/^\d{6,15}$/, 'Numéro invalide').optional(),
+  userId: z.string().trim().regex(objectIdRegex, 'Identifiant invalide').optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export type AdminPaymentsInput = z.infer<typeof listPaymentsSchema>;
+
+export const paymentsHealthSchema = z.object({
+  hours: z.coerce.number().int().min(1).max(24 * 30).default(24),
+});
+export type AdminPaymentsHealthInput = z.infer<typeof paymentsHealthSchema>;
