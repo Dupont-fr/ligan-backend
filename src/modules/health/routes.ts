@@ -79,6 +79,13 @@ router.get('/sebpay-probe', async (req: Request, res: Response) => {
         data: { mode, winner: results.find((r) => r.ok)?.variant ?? null, results },
       });
     }
+    if (mode === 'sdk') {
+      const results = await sebpay.probeCollectionSdk(phone, operator, amount);
+      return res.json({
+        success: true,
+        data: { mode, winner: results.find((r) => r.ok)?.variant ?? null, results },
+      });
+    }
     const results =
       mode === 'params'
         ? await sebpay.probeCollectionParams(phone, operator, amount)

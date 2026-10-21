@@ -266,6 +266,111 @@ export async function probeSebpayInfo(): Promise<
  * et un opérateur fourni tel quel (permet de tester « orange », « ORANGE »,
  * « orange-cm »…). Sert à valider le format retenu sur un numéro donné.
  */
+/**
+ * Forme « officielle » du SDK (@sebpay/sdk) :
+ *   { amount, currency, customer: { phone, provider }, callback_url }
+ * Teste cette forme et ses permutations (avec/sans country, avec/sans
+ * external_reference, provider en code ou en slug, téléphone local ou intl).
+ */
+export async function probeCollectionSdk(
+  phone: string,
+  operator: string,
+  amount = 1000,
+): Promise<SebPayProbeResult[]> {
+  const local = phone.replace(/\D/g, '').slice(-9);
+  const intl = `${env.payment.phoneCountryCode}${local}`;
+  const code = operator.replace(/-.*$/, '').toUpperCase();
+  const slug = operator;
+  const callback = env.payment.publicApiUrl
+    ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
+    : {};
+  const country = { country: env.payment.sebpayCountry };
+  const stamp = Date.now();
+
+  const shapes: { label: string; payload: Record<string, unknown> }[] = [
+    {
+      label: 'forme SDK exacte : customer{phone:+intl, provider:CODE} sans country ni référence',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: `+${intl}`, provider: code },
+        ...callback,
+      },
+    },
+    {
+      label: 'customer{phone:intl sans +, provider:CODE}',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: intl, provider: code },
+        ...callback,
+      },
+    },
+    {
+      label: 'customer{phone:local 9 chiffres, provider:CODE}',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: local, provider: code },
+        ...callback,
+      },
+    },
+    {
+      label: 'forme SDK + country',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: `+${intl}`, provider: code },
+        ...country,
+        ...callback,
+      },
+    },
+    {
+      label: 'customer{phone:+intl, provider:SLUG}',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: `+${intl}`, provider: slug },
+        ...callback,
+      },
+    },
+    {
+      label: 'forme SDK + external_reference',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        customer: { phone: `+${intl}`, provider: code },
+        external_reference: `probe-${stamp}-sdk`,
+        ...callback,
+      },
+    },
+    {
+      label: 'plateforme sans external_reference ni callback',
+      payload: {
+        amount,
+        currency: env.payment.sebpayCurrency,
+        phone: intl,
+        operator: code,
+        ...country,
+      },
+    },
+  ];
+
+  const results: SebPayProbeResult[] = [];
+  for (const [index, shape] of shapes.entries()) {
+    const res = await rawRequest('POST', '/api/v1/collections', shape.payload);
+    results.push({
+      variant: index + 1,
+      label: shape.label,
+      status: res.status,
+      ok: res.ok,
+      body: res.body.slice(0, 700),
+    });
+    if (res.ok) break;
+  }
+  return results;
+}
+
 export async function probeCollectionSingle(
   phone: string,
   operator: string,
