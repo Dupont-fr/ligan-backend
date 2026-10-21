@@ -194,6 +194,51 @@ export interface SebPayProbeResult {
  * compte, le solde et le détail des transactions (statut + motif réel
  * renvoyé par l'opérateur) sans déclencher de nouvelle collecte.
  */
+/**
+ * Opérateurs d'un pays donné (lecture seule, IP whitelistée requise).
+ */
+export async function probeSebpayOperators(
+  countryCode: string,
+): Promise<{ status: number; body: string }> {
+  const res = await rawRequest('GET', '/api/v1/operators');
+  if (!res.ok) return { status: res.status, body: res.body.slice(0, 400) };
+  try {
+    const parsed = JSON.parse(res.body) as {
+      data?: {
+        slug: string;
+        name: string;
+        code: string;
+        payin_enabled: boolean;
+        payout_enabled: boolean;
+        otp_required: boolean;
+        ussd_code: string | null;
+        country?: { country_code: string };
+      }[];
+    };
+    const list = (parsed.data ?? []).filter(
+      (o) => o.country?.country_code === countryCode.toUpperCase(),
+    );
+    return {
+      status: 200,
+      body: JSON.stringify(
+        list.map((o) => ({
+          slug: o.slug,
+          name: o.name,
+          code: o.code,
+          payin_enabled: o.payin_enabled,
+          payout_enabled: o.payout_enabled,
+          otp_required: o.otp_required,
+          ussd_code: o.ussd_code,
+        })),
+        null,
+        2,
+      ),
+    };
+  } catch {
+    return { status: res.status, body: res.body.slice(0, 400) };
+  }
+}
+
 export async function probeSebpayInfo(): Promise<
   { path: string; status: number; body: string }[]
 > {
