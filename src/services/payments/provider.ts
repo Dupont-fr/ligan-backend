@@ -48,6 +48,10 @@ export class ProviderError extends Error {
     public readonly httpStatus = 502,
     /** Corps brut de la réponse du fournisseur : conservé pour le diagnostic. */
     public readonly raw?: string,
+    /** Identifiant de transaction du fournisseur, même en cas de refus. */
+    public readonly providerRef?: string,
+    /** Référence d'erreur fournisseur (ex. `ERR-SK2RTLQMYM`) à communiquer au support. */
+    public readonly providerErrorRef?: string,
   ) {
     super(message);
     this.name = 'ProviderError';

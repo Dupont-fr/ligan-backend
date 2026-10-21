@@ -17,7 +17,7 @@ interface SebPayEnvelope<T> {
   success?: boolean;
   data?: T;
   message?: string;
-  errors?: { code?: string };
+  errors?: { code?: string; transaction_id?: string; reference?: string };
 }
 
 /**
@@ -27,7 +27,7 @@ interface SebPayEnvelope<T> {
  */
 const SEBPAY_ERROR_MESSAGES: Record<string, string> = {
   PAYMENT_DECLINED:
-    "Paiement refusé par l'opérateur mobile money : vérifiez que le numéro correspond bien à l'opérateur choisi (MTN ou Orange) et réessayez plus tard — les demandes répétées sur un même numéro sont souvent bloquées temporairement par l'opérateur.",
+    "Paiement refusé par l'opérateur mobile money : vérifiez que votre compte mobile money est provisionné (solde suffisant) et que le numéro correspond bien à l'opérateur choisi (MTN ou Orange), puis réessayez dans quelques minutes.",
   VALIDATION_ERROR:
     'Données de paiement invalides selon SebPay (configuration ou format de la requête).',
   IP_NOT_ALLOWED:
@@ -103,10 +103,17 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
       `SebPay ${method} ${path} → HTTP ${raw.status} | ${providerMessage || '(pas de message)'} | code: ${providerCode || '-'} | corps: ${raw.body.slice(0, 800)}`,
     );
     const fallback = providerMessage || `SebPay a répondu ${raw.status}`;
+    // SebPay crée la transaction avant de transmettre la demande à l'opérateur :
+    // même un refus porte donc un `transaction_id` (utile pour le support) et une
+    // référence d'erreur (`ERR-XXXX`) à citer dans une réclamation.
+    const providerRef = payload?.errors?.transaction_id;
+    const providerErrorRef = payload?.errors?.reference;
     throw new ProviderError(
       sebpayErrorMessage(providerCode, fallback, raw.status),
       502,
       raw.body.slice(0, 2000),
+      typeof providerRef === 'string' && providerRef ? providerRef : undefined,
+      typeof providerErrorRef === 'string' && providerErrorRef ? providerErrorRef : undefined,
     );
   }
   if (!payload?.data) {

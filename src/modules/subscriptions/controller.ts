@@ -97,10 +97,17 @@ export async function checkout(req: Request, res: Response) {
     if (err instanceof ProviderError && err.raw) {
       payment.providerRaw = err.raw.slice(0, 2000);
     }
+    // SebPay crée la transaction avant l'envoi à l'opérateur : on conserve donc
+    // son identifiant même pour un refus (traçabilité + réclamation au support).
+    if (err instanceof ProviderError && err.providerRef && !payment.providerRef) {
+      const alreadyUsed = await Payment.exists({ providerRef: err.providerRef });
+      if (!alreadyUsed) payment.providerRef = err.providerRef;
+    }
     await payment.save();
     logger.warn(`Checkout échoué (${String(payment._id)}) : ${payment.failureReason}`);
     if (err instanceof ProviderError) {
-      throw new AppError(err.message, err.httpStatus);
+      const ref = err.providerErrorRef ? ` (réf. SebPay ${err.providerErrorRef})` : '';
+      throw new AppError(`${err.message}${ref}`, err.httpStatus);
     }
     throw err;
   }
