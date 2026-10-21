@@ -52,6 +52,14 @@ router.get(
     } catch (err) {
       out.operatorsError = err instanceof Error ? err.message : String(err);
     }
+    // Dernier appel SebPay (avec le corps brut de la réponse) : c'est là que
+    // se trouve le motif réel d'un refus opérateur.
+    try {
+      const { getLastSebPayExchange } = await import('../../services/payments/sebpay.js');
+      out.lastExchange = getLastSebPayExchange();
+    } catch {
+      /* module indisponible : on ignore */
+    }
     res.json({ success: true, data: out });
   },
 );

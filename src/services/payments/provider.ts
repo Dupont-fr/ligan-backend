@@ -46,6 +46,8 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     public readonly httpStatus = 502,
+    /** Corps brut de la réponse du fournisseur : conservé pour le diagnostic. */
+    public readonly raw?: string,
   ) {
     super(message);
     this.name = 'ProviderError';

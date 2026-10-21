@@ -91,7 +91,12 @@ export async function checkout(req: Request, res: Response) {
   } catch (err) {
     payment.status = 'FAILED';
     payment.failureReason =
-      err instanceof Error ? err.message.slice(0, 300) : 'Échec de l’initialisation du paiement';
+      err instanceof Error ? err.message.slice(0, 300) : 'échec de l\'initialisation du paiement';
+    // Corps brut de la réponse du fournisseur : indispensable pour comprendre
+    // un refus opérateur (SebPay ne renvoie aucun détail exploitable ailleurs).
+    if (err instanceof ProviderError && err.raw) {
+      payment.providerRaw = err.raw.slice(0, 2000);
+    }
     await payment.save();
     logger.warn(`Checkout échoué (${String(payment._id)}) : ${payment.failureReason}`);
     if (err instanceof ProviderError) {

@@ -23,6 +23,8 @@ const paymentSchema = new Schema(
     phoneNumber: { type: String, trim: true, maxlength: 30, default: undefined },
     status: { type: String, enum: PAYMENT_STATUSES, default: 'PENDING', index: true },
     failureReason: { type: String, trim: true, maxlength: 300, default: undefined },
+    /** Corps brut de la réponse du fournisseur en cas d'échec (diagnostic SebPay). */
+    providerRaw: { type: String, maxlength: 2000, default: undefined },
     paidAt: { type: Date, default: undefined },
   },
   { timestamps: true },

@@ -27,7 +27,7 @@ interface SebPayEnvelope<T> {
  */
 const SEBPAY_ERROR_MESSAGES: Record<string, string> = {
   PAYMENT_DECLINED:
-    "Paiement refusé par l'opérateur mobile money. Vérifiez le numéro de téléphone et l'opérateur choisi, puis réessayez.",
+    "Paiement refusé par l'opérateur mobile money : vérifiez que le numéro correspond bien à l'opérateur choisi (MTN ou Orange) et réessayez plus tard — les demandes répétées sur un même numéro sont souvent bloquées temporairement par l'opérateur.",
   VALIDATION_ERROR:
     'Données de paiement invalides selon SebPay (configuration ou format de la requête).',
   IP_NOT_ALLOWED:
@@ -63,8 +63,31 @@ interface SebPayOperator {
   ussd_code?: string;
 }
 
+/** Dernier échange (requête/réponse) avec SebPay : indispensable au diagnostic. */
+interface SebPayExchange {
+  at: string;
+  method: string;
+  path: string;
+  status: number;
+  body: string;
+}
+
+let lastExchange: SebPayExchange | null = null;
+
+/** Dernier appel SebPay (requête + réponse brute), pour la route de diagnostic. */
+export function getLastSebPayExchange(): SebPayExchange | null {
+  return lastExchange;
+}
+
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const raw = await rawRequest(method, path, body);
+  lastExchange = {
+    at: new Date().toISOString(),
+    method,
+    path,
+    status: raw.status,
+    body: raw.body.slice(0, 2000),
+  };
   let payload: SebPayEnvelope<T> | null = null;
   try {
     payload = JSON.parse(raw.body) as SebPayEnvelope<T>;
@@ -80,7 +103,11 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
       `SebPay ${method} ${path} → HTTP ${raw.status} | ${providerMessage || '(pas de message)'} | code: ${providerCode || '-'} | corps: ${raw.body.slice(0, 800)}`,
     );
     const fallback = providerMessage || `SebPay a répondu ${raw.status}`;
-    throw new ProviderError(sebpayErrorMessage(providerCode, fallback, raw.status), 502);
+    throw new ProviderError(
+      sebpayErrorMessage(providerCode, fallback, raw.status),
+      502,
+      raw.body.slice(0, 2000),
+    );
   }
   if (!payload?.data) {
     throw new ProviderError('Réponse vide du service SebPay', 502);
