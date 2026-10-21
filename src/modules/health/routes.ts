@@ -81,6 +81,28 @@ router.get(
         out.collectionError = err instanceof Error ? err.message : String(err);
       }
     }
+    // Annulation d'une collection en attente (POST /api/sebpay-debug?cancel=<id>)
+    const cancelId = typeof req.query.cancel === 'string' ? req.query.cancel.trim() : '';
+    if (cancelId) {
+      const headers = {
+        'X-Public-Key': env.payment.sebpayPublicKey,
+        'X-Secret-Key': env.payment.sebpaySecretKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      for (const [label, method, url] of [
+        ['delete', 'DELETE', `https://newapi.sebpay.bj/api/v1/collections/${encodeURIComponent(cancelId)}`],
+        ['cancelPost', 'POST', `https://newapi.sebpay.bj/api/v1/collections/${encodeURIComponent(cancelId)}/cancel`],
+      ] as const) {
+        try {
+          const r = await fetch(url, { method, headers });
+          out[`cancel_${label}_status`] = r.status;
+          out[`cancel_${label}_body`] = await r.text();
+        } catch (err) {
+          out[`cancel_${label}_error`] = err instanceof Error ? err.message : String(err);
+        }
+      }
+    }
     res.json({ success: true, data: out });
   },
 );
