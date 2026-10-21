@@ -35,9 +35,36 @@ interface SebPayOperator {
 }
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
-  let res: Response;
+  const raw = await rawRequest(method, path, body);
+  let payload: SebPayEnvelope<T> | null = null;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    payload = JSON.parse(raw.body) as SebPayEnvelope<T>;
+  } catch {
+    /* réponse sans corps JSON */
+  }
+  if (!raw.ok || payload?.success === false) {
+    const providerMessage = payload?.message ?? '';
+    // Log brut : sans lui, SebPay masque le motif réel derrière un 502 générique
+    // (« Failed to initiate collection » n'indique ni le champ ni la valeur fautive).
+    logger.error(
+      `SebPay ${method} ${path} → HTTP ${raw.status} | ${providerMessage || '(pas de message)'} | corps: ${raw.body.slice(0, 800)}`,
+    );
+    throw new ProviderError(providerMessage || `SebPay a répondu ${raw.status}`, 502);
+  }
+  if (!payload?.data) {
+    throw new ProviderError('Réponse vide du service SebPay', 502);
+  }
+  return payload.data;
+}
+
+/** Appel brut vers l'API SebPay : jamais d'exception, toujours le statut + le corps. */
+async function rawRequest(
+  method: 'GET' | 'POST',
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; ok: boolean; body: string }> {
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers: {
         'X-Public-Key': env.payment.sebpayPublicKey,
@@ -48,31 +75,15 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    const text = await res.text().catch(() => '');
+    return { status: res.status, ok: res.ok, body: text };
   } catch (err) {
-    logger.error(`SebPay injoignable : ${err instanceof Error ? err.message : String(err)}`);
-    throw new ProviderError('Le service de paiement est momentanément injoignable', 502);
+    return {
+      status: 0,
+      ok: false,
+      body: `ERREUR RESEAU : ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
-
-  const rawText = await res.text().catch(() => '');
-  let payload: SebPayEnvelope<T> | null = null;
-  try {
-    payload = JSON.parse(rawText) as SebPayEnvelope<T>;
-  } catch {
-    /* réponse sans corps JSON */
-  }
-  if (!res.ok || payload?.success === false) {
-    const providerMessage = payload?.message ?? '';
-    // Log brut : sans lui, SebPay masque le motif réel derrière un 502 générique
-    // (« Failed to initiate collection » n'indique ni le champ ni la valeur fautive).
-    logger.error(
-      `SebPay ${method} ${path} → HTTP ${res.status} | ${providerMessage || '(pas de message)'} | corps: ${rawText.slice(0, 800)}`,
-    );
-    throw new ProviderError(providerMessage || `SebPay a répondu ${res.status}`, 502);
-  }
-  if (!payload?.data) {
-    throw new ProviderError('Réponse vide du service SebPay', 502);
-  }
-  return payload.data;
 }
 
 /**
@@ -143,7 +154,6 @@ export interface PaymentOperator {
   otpRequired: boolean;
   ussdCode: string | null;
 }
-
 /** Opérateurs actifs du pays du compte marchand (GET /operators?country=…). */
 export async function fetchSebPayOperators(): Promise<PaymentOperator[]> {
   const data = await request<SebPayOperator[]>('GET', `/api/v1/operators?country=${env.payment.sebpayCountry}`);
@@ -156,4 +166,105 @@ export async function fetchSebPayOperators(): Promise<PaymentOperator[]> {
       otpRequired: op.otp_required === true,
       ussdCode: typeof op.ussd_code === 'string' && op.ussd_code ? op.ussd_code : null,
     }));
+}
+
+/* ---------------------------------------------------------------------------
+ * Sonde de format (temporaire)
+ *
+ * SebPay peut refuser une collecte pour un simple écart de format (numéro
+ * local vs international, slug d'opérateur vs code, champs optionnels…).
+ * Plutôt que de deviner, on essaie plusieurs combinaisons et on s'arrête dès
+ * qu'une passe : la variante qui fonctionne est celle qu'on Retient en dur.
+ * ------------------------------------------------------------------------- */
+
+export interface SebPayProbeResult {
+  variant: number;
+  label: string;
+  status: number;
+  ok: boolean;
+  body: string;
+}
+
+export async function probeCollectionFormats(
+  phone: string,
+  operatorSlug: string,
+  amount = 1000,
+): Promise<SebPayProbeResult[]> {
+  const local = phone.replace(/\D/g, '').slice(-9);
+  const intl = `${env.payment.phoneCountryCode}${local}`;
+  const code = operatorSlug.replace(/-.*$/, '').toUpperCase();
+  const slug = operatorSlug;
+
+  const common = {
+    amount,
+    currency: env.payment.sebpayCurrency,
+    external_reference: `probe-${Date.now()}`,
+  };
+  const callback = env.payment.publicApiUrl
+    ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
+    : {};
+  const country = { country: env.payment.sebpayCountry };
+
+  const variants: { label: string; payload: Record<string, unknown> }[] = [
+    {
+      label: 'numéro local + slug opérateur + pays + devise',
+      payload: { ...common, ...country, ...callback, phone: local, operator: slug },
+    },
+    {
+      label: 'numéro international avec + + slug opérateur + pays + devise',
+      payload: { ...common, ...country, ...callback, phone: `+${intl}`, operator: slug },
+    },
+    {
+      label: 'numéro international sans + + code opérateur (MAJUSCULES) + pays + devise',
+      payload: { ...common, ...country, ...callback, phone: intl, operator: code },
+    },
+    {
+      label: 'numéro local + code opérateur (MAJUSCULES) + pays + devise',
+      payload: { ...common, ...country, ...callback, phone: local, operator: code },
+    },
+    {
+      label: 'numéro international avec + + code opérateur (MAJUSCULES) + pays + devise',
+      payload: { ...common, ...country, ...callback, phone: `+${intl}`, operator: code },
+    },
+    {
+      label: 'numéro international avec + + code opérateur, sans pays',
+      payload: { ...common, ...callback, phone: `+${intl}`, operator: code },
+    },
+    {
+      label: 'numéro local + slug opérateur, sans pays',
+      payload: { ...common, ...callback, phone: local, operator: slug },
+    },
+    {
+      label: 'objet customer imbriqué (phone + provider)',
+      payload: {
+        ...common,
+        ...country,
+        ...callback,
+        customer: { phone: `+${intl}`, provider: code },
+      },
+    },
+    {
+      label: 'objet customer imbriqué + slug opérateur',
+      payload: {
+        ...common,
+        ...country,
+        ...callback,
+        customer: { phone: `+${intl}`, provider: slug },
+      },
+    },
+  ];
+
+  const results: SebPayProbeResult[] = [];
+  for (const [index, variant] of variants.entries()) {
+    const res = await rawRequest('POST', '/api/v1/collections', variant.payload);
+    results.push({
+      variant: index + 1,
+      label: variant.label,
+      status: res.status,
+      ok: res.ok,
+      body: res.body.slice(0, 600),
+    });
+    if (res.ok) break;
+  }
+  return results;
 }

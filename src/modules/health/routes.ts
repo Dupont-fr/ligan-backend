@@ -49,4 +49,34 @@ router.get('/sebpay-debug', async (_req: Request, res: Response) => {
   res.json({ success: true, data: out });
 });
 
+// Route temporaire : teste plusieurs formats de payload de collecte SebPay et
+// s'arrête dès que l'un est accepté. Permet d'identifier le format exact
+// attendu par l'API sans deviner. À SUPPRIMER une fois le format trouvé.
+router.get('/sebpay-probe', async (req: Request, res: Response) => {
+  const env = (await import('../../config/env.js')).default;
+  if (!env.payment.sebpayPublicKey || !env.payment.sebpaySecretKey) {
+    return res.status(400).json({ success: false, message: 'Clés SebPay absentes' });
+  }
+  const phone = String(req.query.phone ?? '692763964');
+  const operator = String(req.query.operator ?? 'orange-cm');
+  const amount = Number(req.query.amount ?? 1000);
+  try {
+    const { probeCollectionFormats } = await import('../../services/payments/sebpay.js');
+    const results = await probeCollectionFormats(phone, operator, amount);
+    const winner = results.find((r) => r.ok);
+    return res.json({
+      success: true,
+      data: {
+        winner: winner ? winner.variant : null,
+        results,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
 export default router;
