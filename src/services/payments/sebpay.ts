@@ -106,19 +106,12 @@ export const sebpayProvider: PaymentProvider = {
   async createTransaction(input: CreateTransactionInput): Promise<TransactionResult> {
     const phone = normalizePhone(input.phoneNumber);
     const phoneDigits = phone.replace(/^\+/, '');
-    const operatorCode = input.network.replace(/-.*$/, '').toUpperCase();
     const payload: Record<string, unknown> = {
       amount: input.amount,
       currency: env.payment.sebpayCurrency,
       phone: phoneDigits,
-      operator: operatorCode,
-      country: env.payment.sebpayCountry,
+      operator: input.network,
       external_reference: input.reference,
-      customer: {
-        phone: phoneDigits,
-        provider: operatorCode,
-      },
-      ...(input.otpCode ? { otp_code: input.otpCode } : {}),
       ...(env.payment.publicApiUrl
         ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
         : {}),
