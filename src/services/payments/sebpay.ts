@@ -185,6 +185,72 @@ export interface SebPayProbeResult {
   body: string;
 }
 
+/**
+ * Variantes de paramètres (devise, montant, format de référence) testées sur
+ * une base commune. Sert à isoler l'axe responsable du refus.
+ */
+export async function probeCollectionParams(
+  phone: string,
+  operatorSlug: string,
+  amount = 1000,
+): Promise<SebPayProbeResult[]> {
+  const local = phone.replace(/\D/g, '').slice(-9);
+  const intl = `${env.payment.phoneCountryCode}${local}`;
+  const slug = operatorSlug;
+  const hexRef = Array.from({ length: 24 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+
+  const callback = env.payment.publicApiUrl
+    ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
+    : {};
+  const country = { country: env.payment.sebpayCountry };
+  const stamp = Date.now();
+
+  const base = {
+    amount,
+    currency: env.payment.sebpayCurrency,
+    ...country,
+    ...callback,
+    phone: intl,
+    operator: slug,
+  };
+
+  const experiments: { label: string; payload: Record<string, unknown> }[] = [
+    { label: `devise ${env.payment.sebpayCurrency} (référence)`, payload: { ...base } },
+    { label: 'devise XOF', payload: { ...base, currency: 'XOF' } },
+    { label: 'devise EUR', payload: { ...base, currency: 'EUR' } },
+    { label: `montant ${amount * 2}`, payload: { ...base, amount: amount * 2 } },
+    { label: 'montant 20000', payload: { ...base, amount: 20000 } },
+    { label: 'montant 100 (minimum)', payload: { ...base, amount: 100 } },
+    {
+      label: 'référence hexadécimale 24 caractères (comme l’app)',
+      payload: { ...base, external_reference: hexRef },
+    },
+    {
+      label: 'numéro local + slug + devise XOF',
+      payload: { ...base, currency: 'XOF', phone: local, external_reference: `probe-${stamp}-loc` },
+    },
+  ];
+
+  const results: SebPayProbeResult[] = [];
+  for (const [index, experiment] of experiments.entries()) {
+    const payload = {
+      ...experiment.payload,
+      external_reference:
+        (experiment.payload.external_reference as string | undefined) ?? `probe-${stamp}-p${index}`,
+    };
+    const res = await rawRequest('POST', '/api/v1/collections', payload);
+    results.push({
+      variant: index + 1,
+      label: experiment.label,
+      status: res.status,
+      ok: res.ok,
+      body: res.body.slice(0, 600),
+    });
+    if (res.ok) break;
+  }
+  return results;
+}
+
 export async function probeCollectionFormats(
   phone: string,
   operatorSlug: string,

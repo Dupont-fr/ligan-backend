@@ -60,13 +60,18 @@ router.get('/sebpay-probe', async (req: Request, res: Response) => {
   const phone = String(req.query.phone ?? '692763964');
   const operator = String(req.query.operator ?? 'orange-cm');
   const amount = Number(req.query.amount ?? 1000);
+  const mode = String(req.query.mode ?? 'formats');
   try {
-    const { probeCollectionFormats } = await import('../../services/payments/sebpay.js');
-    const results = await probeCollectionFormats(phone, operator, amount);
+    const sebpay = await import('../../services/payments/sebpay.js');
+    const results =
+      mode === 'params'
+        ? await sebpay.probeCollectionParams(phone, operator, amount)
+        : await sebpay.probeCollectionFormats(phone, operator, amount);
     const winner = results.find((r) => r.ok);
     return res.json({
       success: true,
       data: {
+        mode,
         winner: winner ? winner.variant : null,
         results,
       },
