@@ -189,6 +189,33 @@ export interface SebPayProbeResult {
  * Variantes de paramètres (devise, montant, format de référence) testées sur
  * une base commune. Sert à isoler l'axe responsable du refus.
  */
+/**
+ * Scanner en lecture seule des endpoints SebPay : permet de voir l'état du
+ * compte, le solde et le détail des transactions (statut + motif réel
+ * renvoyé par l'opérateur) sans déclencher de nouvelle collecte.
+ */
+export async function probeSebpayInfo(): Promise<
+  { path: string; status: number; body: string }[]
+> {
+  const paths = [
+    '/api/v1/balance',
+    '/api/v1/account',
+    '/api/v1/merchants',
+    '/api/v1/collects',
+    '/api/v1/collections',
+    '/api/v1/transactions',
+    '/api/v1/operators',
+    '/api/v1/countries',
+    '/api/v1/currencies',
+  ];
+  const out: { path: string; status: number; body: string }[] = [];
+  for (const path of paths) {
+    const res = await rawRequest('GET', path);
+    out.push({ path, status: res.status, body: res.body.slice(0, 1200) });
+  }
+  return out;
+}
+
 export async function probeCollectionParams(
   phone: string,
   operatorSlug: string,
