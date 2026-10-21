@@ -76,15 +76,22 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 }
 
 /**
- * Format international attendu par SebPay : chiffres uniquement, sans « + ».
+ * Format international attendu par SebPay : E.164 avec « + » (ex. +237692763964).
  * Le numéro local (9 chiffres, sans indicatif) est préfixé par l'indicatif pays
  * (PHONE_COUNTRY_CODE, ex. 237 pour le Cameroun) ; un numéro déjà international
- * (avec « + » ou plus long que 9 chiffres) est laissé tel quel.
+ * (avec « + » ou plus long que 9 chiffres) est normalisé en +XXXXXXXXXXX.
  */
 function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  const hasCountryCode = phone.trim().startsWith('+') || digits.length > 9;
-  return hasCountryCode ? digits : `${env.payment.phoneCountryCode}${digits}`;
+  const trimmed = phone.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (trimmed.startsWith('+')) {
+    return `+${digits}`;
+  }
+  const hasCountryCode = digits.length > 9;
+  if (hasCountryCode) {
+    return `+${digits}`;
+  }
+  return `+${env.payment.phoneCountryCode}${digits}`;
 }
 
 /**
