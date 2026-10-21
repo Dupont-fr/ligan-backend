@@ -105,16 +105,17 @@ export const sebpayProvider: PaymentProvider = {
 
   async createTransaction(input: CreateTransactionInput): Promise<TransactionResult> {
     const phone = normalizePhone(input.phoneNumber);
+    const operatorCode = input.network.replace(/-.*$/, '').toUpperCase();
     const payload: Record<string, unknown> = {
       amount: input.amount,
       currency: env.payment.sebpayCurrency,
       phone,
-      operator: input.network,
+      operator: operatorCode,
       country: env.payment.sebpayCountry,
       external_reference: input.reference,
       customer: {
         phone,
-        provider: input.network.replace(/-.*$/, '').toUpperCase(),
+        provider: operatorCode,
       },
       ...(input.otpCode ? { otp_code: input.otpCode } : {}),
       ...(env.payment.publicApiUrl
