@@ -72,6 +72,13 @@ router.get('/sebpay-probe', async (req: Request, res: Response) => {
       const result = await sebpay.probeSebpayOperators(country);
       return res.json({ success: true, data: { mode, country, ...result } });
     }
+    if (mode === 'single') {
+      const results = await sebpay.probeCollectionSingle(phone, operator, amount);
+      return res.json({
+        success: true,
+        data: { mode, winner: results.find((r) => r.ok)?.variant ?? null, results },
+      });
+    }
     const results =
       mode === 'params'
         ? await sebpay.probeCollectionParams(phone, operator, amount)

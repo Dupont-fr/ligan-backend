@@ -261,6 +261,41 @@ export async function probeSebpayInfo(): Promise<
   return out;
 }
 
+/**
+ * Un seul envoi de collecte, avec le payload de production (country compris)
+ * et un opérateur fourni tel quel (permet de tester « orange », « ORANGE »,
+ * « orange-cm »…). Sert à valider le format retenu sur un numéro donné.
+ */
+export async function probeCollectionSingle(
+  phone: string,
+  operator: string,
+  amount = 1000,
+): Promise<SebPayProbeResult[]> {
+  const local = phone.replace(/\D/g, '').slice(-9);
+  const intl = `${env.payment.phoneCountryCode}${local}`;
+  const payload: Record<string, unknown> = {
+    amount,
+    currency: env.payment.sebpayCurrency,
+    phone: intl,
+    operator,
+    country: env.payment.sebpayCountry,
+    external_reference: `probe-${Date.now()}-single`,
+    ...(env.payment.publicApiUrl
+      ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
+      : {}),
+  };
+  const res = await rawRequest('POST', '/api/v1/collections', payload);
+  return [
+    {
+      variant: 1,
+      label: `opérateur « ${operator} » + téléphone ${intl} + ${amount} ${env.payment.sebpayCurrency}`,
+      status: res.status,
+      ok: res.ok,
+      body: res.body.slice(0, 800),
+    },
+  ];
+}
+
 export async function probeCollectionParams(
   phone: string,
   operatorSlug: string,
