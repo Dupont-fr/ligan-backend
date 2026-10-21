@@ -104,18 +104,24 @@ export const sebpayProvider: PaymentProvider = {
   name: 'SEBPAY',
 
   async createTransaction(input: CreateTransactionInput): Promise<TransactionResult> {
-    const data = await request<SebPayCollection>('POST', '/api/v1/collections', {
+    const phone = normalizePhone(input.phoneNumber);
+    const payload: Record<string, unknown> = {
       amount: input.amount,
       currency: env.payment.sebpayCurrency,
-      phone: normalizePhone(input.phoneNumber),
+      phone,
       operator: input.network,
       country: env.payment.sebpayCountry,
       external_reference: input.reference,
+      customer: {
+        phone,
+        provider: input.network.replace(/-.*$/, '').toUpperCase(),
+      },
       ...(input.otpCode ? { otp_code: input.otpCode } : {}),
       ...(env.payment.publicApiUrl
         ? { callback_url: `${env.payment.publicApiUrl}/api/payments/webhook` }
         : {}),
-    });
+    };
+    const data = await request<SebPayCollection>('POST', '/api/v1/collections', payload);
     if (!data.transaction_id) {
       throw new ProviderError('Référence de transaction absente de la réponse SebPay', 502);
     }
