@@ -15,6 +15,7 @@ import analyticsRoutes from './modules/analytics/routes.js';
 import authRoutes from './modules/auth/routes.js';
 import businessesRoutes from './modules/businesses/routes.js';
 import categoriesRoutes from './modules/categories/routes.js';
+import contactRoutes from './modules/contact/routes.js';
 import healthRoutes from './modules/health/routes.js';
 import paymentsRoutes from './modules/payments/routes.js';
 import plansRoutes from './modules/plans/routes.js';
@@ -97,6 +98,7 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
 // Plans publics + abonnements pro + webhook paiements (Sprint 12)
 app.use('/api/plans', plansRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/payments', paymentsRoutes);
 
