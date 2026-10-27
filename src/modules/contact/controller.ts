@@ -22,9 +22,12 @@ export async function sendContactMessage(req: Request, res: Response) {
     input.message,
   ].join('\n');
 
+  const recipient =
+    env.email.to || env.email.from || env.email.user || SUPPORT_EMAIL;
+
   try {
     const sent = await sendContactEmail({
-      to: env.email.to || SUPPORT_EMAIL,
+      to: recipient,
       fromName: 'LIGAN+',
       replyTo: input.email,
       subject,
@@ -35,7 +38,7 @@ export async function sendContactMessage(req: Request, res: Response) {
 
     if (!sent && (env.email.disabled || !env.email.apiKey)) {
       // Mode dev/log uniquement : on accepte tout de même pour ne pas bloquer l'UX en local
-      logger.info(`[contact] envoyé en mode DEV/log uniquement vers ${env.email.to || SUPPORT_EMAIL}`);
+      logger.info(`[contact] envoyé en mode DEV/log uniquement vers ${recipient}`);
     } else if (!sent) {
       throw new AppError('Impossible d’envoyer le message pour le moment. Réessayez plus tard.', 502);
     }
