@@ -38,6 +38,7 @@ const env = {
     pass: required('EMAIL_PASS', ''),
     fromName: required('EMAIL_FROM_NAME', 'LIGAN+'),
     from: required('EMAIL_FROM', ''),
+    to: process.env.CONTACT_EMAIL || process.env.SUPPORT_EMAIL || '',
     disabled: process.env.EMAIL_DISABLED === '1',
   },
   smtp: {

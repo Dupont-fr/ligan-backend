@@ -192,3 +192,73 @@ export async function sendResetPasswordEmail(to: string, code: string): Promise<
     bodyText: `Réinitialisation de mot de passe ${env.appName} : votre code est ${code}. Il expire dans ${Math.round(RESET_CODE_TTL_MINUTES)} minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
   });
 }
+
+export function contactEmailBody(name: string, email: string, subject: string, message: string): string {
+  return `
+      <h1 class="lg-h1" style="margin:0 0 8px;font-size:22px;color:${COLOR_TEXT};font-weight:700">Message depuis le formulaire de contact</h1>
+      <p style="margin:0 0 16px;font-size:15px;color:${COLOR_TEXT_SECONDARY};line-height:1.6">Un utilisateur a envoyé un message via le formulaire de contact ${env.appName}.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${COLOR_BG};border-radius:12px;overflow:hidden">
+        <tr>
+          <td style="padding:16px 18px">
+            <p style="margin:0 0 8px;font-size:14px;color:${COLOR_TEXT}"><strong>Nom :</strong> ${name}</p>
+            <p style="margin:0 0 8px;font-size:14px;color:${COLOR_TEXT}"><strong>Email :</strong> <a href="mailto:${email}" style="color:${COLOR_PRIMARY};text-decoration:none">${email}</a></p>
+            <p style="margin:0 0 8px;font-size:14px;color:${COLOR_TEXT}"><strong>Sujet :</strong> ${subject}</p>
+            <p style="margin:12px 0 0;font-size:14px;color:${COLOR_TEXT};white-space:pre-wrap;line-height:1.7">${message.replace(/\n/g, '<br />')}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:16px 0 0;font-size:13px;color:${COLOR_TEXT_MUTED};line-height:1.6">Vous pouvez répondre directement à cet email (réponse au message envoyé).</p>
+    `;
+}
+
+export async function sendContactEmail(input: {
+  to: string;
+  fromName?: string;
+  replyTo?: string;
+  subject: string;
+  preheader: string;
+  bodyHtml: string;
+  bodyText: string;
+}): Promise<boolean> {
+  const { apiKey, user, from, fromName, disabled } = env.email;
+
+  if (disabled || !apiKey) {
+    logger.info(`(DEV) Email « ${input.subject} » à destination de ${input.to}`);
+    console.log(`${input.bodyText}\n`);
+    return false;
+  }
+
+  const sender = from && from.includes('@') ? from : user;
+  const { html, text } = frame({ to: input.to, subject: input.subject, preheader: input.preheader, bodyHtml: input.bodyHtml, bodyText: input.bodyText });
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: input.fromName || fromName, email: sender },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        htmlContent: html,
+        textContent: text,
+        ...(input.replyTo ? { replyTo: { email: input.replyTo } } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Brevo API ${response.status}: ${body}`);
+    }
+
+    logger.info(`Email envoyé à ${input.to} : ${input.subject}`);
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'erreur inconnue';
+    logger.error(`Échec d'envoi d'email à ${input.to} : ${message}`);
+    return false;
+  }
+}

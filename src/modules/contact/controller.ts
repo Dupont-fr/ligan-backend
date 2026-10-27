@@ -1,33 +1,12 @@
 import type { Request, Response } from 'express';
-import nodemailer from 'nodemailer';
 import env from '../../config/env.js';
+import { contactEmailBody, sendContactEmail } from '../../services/email.js';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { success } from '../../utils/ApiResponse.js';
 import { logger } from '../../utils/logger.js';
 import type { ContactInput } from './validator.js';
 
 const SUPPORT_EMAIL = 'support@ligan.plus';
-
-function createTransport() {
-  if (env.smtp.host && env.smtp.user && env.smtp.pass) {
-    return nodemailer.createTransport({
-      host: env.smtp.host,
-      port: env.smtp.port,
-      secure: env.smtp.secure,
-      auth: { user: env.smtp.user, pass: env.smtp.pass },
-    });
-  }
-
-  // Fallback dev : log uniquement
-  return {
-    sendMail: async (mail: unknown) => {
-      logger.info(`[contact] email non envoyé (SMTP non configuré) : ${JSON.stringify(mail)}`);
-      return { messageId: 'dev-log' };
-    },
-  } as unknown as { sendMail: (mail: unknown) => Promise<{ messageId: string }> };
-}
-
-const transporter = createTransport();
 
 export async function sendContactMessage(req: Request, res: Response) {
   const input = req.validBody as ContactInput;
@@ -44,14 +23,24 @@ export async function sendContactMessage(req: Request, res: Response) {
   ].join('\n');
 
   try {
-    await transporter.sendMail({
-      from: env.smtp.from || `"LIGAN+" <${SUPPORT_EMAIL}>`,
-      to: SUPPORT_EMAIL,
+    const sent = await sendContactEmail({
+      to: env.email.to || SUPPORT_EMAIL,
+      fromName: 'LIGAN+',
       replyTo: input.email,
       subject,
-      text,
+      preheader: `${input.name} vous a envoyé un message depuis le formulaire de contact`,
+      bodyHtml: contactEmailBody(input.name, input.email, input.subject, input.message),
+      bodyText: text,
     });
+
+    if (!sent && (env.email.disabled || !env.email.apiKey)) {
+      // Mode dev/log uniquement : on accepte tout de même pour ne pas bloquer l'UX en local
+      logger.info(`[contact] envoyé en mode DEV/log uniquement vers ${env.email.to || SUPPORT_EMAIL}`);
+    } else if (!sent) {
+      throw new AppError('Impossible d’envoyer le message pour le moment. Réessayez plus tard.', 502);
+    }
   } catch (err) {
+    if (err instanceof AppError) throw err;
     logger.error(`Échec envoi mail contact : ${err instanceof Error ? err.message : err}`);
     throw new AppError('Impossible d’envoyer le message pour le moment. Réessayez plus tard.', 502);
   }
