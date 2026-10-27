@@ -22,8 +22,14 @@ export async function sendContactMessage(req: Request, res: Response) {
     input.message,
   ].join('\n');
 
+  // Doit recevoir vers l'email configuré avec Brevo (celui qui reçoit les codes de vérification)
   const recipient =
-    env.email.to || env.email.from || env.email.user || SUPPORT_EMAIL;
+    process.env.CONTACT_RECEIVER ||
+    process.env.BREVO_CONTACT_EMAIL ||
+    env.email.from ||
+    env.email.user ||
+    env.email.to ||
+    SUPPORT_EMAIL;
 
   try {
     const sent = await sendContactEmail({
