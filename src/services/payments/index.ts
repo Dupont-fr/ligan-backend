@@ -159,14 +159,91 @@ export async function downgradeToFree(userId: string): Promise<SubscriptionDoc |
   if (!free) {
     return null;
   }
-  return Subscription.findOneAndUpdate(
+
+  const existing = await Subscription.findOne({ userId }).populate('planId');
+  if (existing) {
+    const plan = existing.planId as unknown as PlanDoc | null;
+    const hasPaidRemaining =
+      existing.status === 'ACTIVE' && plan && plan.price > 0 && existing.endDate && new Date(existing.endDate).getTime() > Date.now();
+
+    if (hasPaidRemaining) {
+      await Subscription.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            planId: free._id,
+            status: 'ACTIVE',
+            startDate: new Date(),
+            activatedByPayment: undefined,
+            previousPlanId: plan._id,
+            previousEndDate: existing.endDate,
+            previousActivatedByPayment: existing.activatedByPayment,
+            downgradedAt: new Date(),
+          },
+          $unset: { endDate: '' },
+        },
+        { new: true },
+      );
+    } else {
+      await Subscription.findOneAndUpdate(
+        { userId },
+        {
+          $set: { planId: free._id, status: 'ACTIVE', startDate: new Date(), activatedByPayment: undefined },
+          $unset: { endDate: '', previousPlanId: '', previousEndDate: '', previousActivatedByPayment: '', downgradedAt: '' },
+        },
+        { new: true },
+      );
+    }
+  } else {
+    await Subscription.findOneAndUpdate(
+      { userId },
+      {
+        $set: { planId: free._id, status: 'ACTIVE', startDate: new Date(), activatedByPayment: undefined },
+        $unset: { endDate: '' },
+      },
+      { upsert: true, new: true },
+    );
+  }
+
+  return Subscription.findOne({ userId });
+}
+
+/** Restaure un abonnement payant précédemment sauvegardé s'il est encore valide. */
+export async function restorePreviousSubscription(userId: string): Promise<SubscriptionDoc | null> {
+  const sub = await Subscription.findOne({ userId });
+  if (!sub || !sub.previousPlanId || !sub.previousEndDate) {
+    return null;
+  }
+  if (new Date(sub.previousEndDate).getTime() <= Date.now()) {
+    await Subscription.findOneAndUpdate(
+      { userId },
+      { $unset: { previousPlanId: '', previousEndDate: '', previousActivatedByPayment: '', downgradedAt: '' } },
+    );
+    return null;
+  }
+
+  const plan = await Plan.findById(sub.previousPlanId);
+  if (!plan || plan.price <= 0) {
+    return null;
+  }
+
+  const updated = await Subscription.findOneAndUpdate(
     { userId },
     {
-      $set: { planId: free._id, status: 'ACTIVE', startDate: new Date(), activatedByPayment: undefined },
-      $unset: { endDate: '' },
+      $set: {
+        planId: plan._id,
+        status: 'ACTIVE',
+        startDate: new Date(),
+        endDate: sub.previousEndDate,
+        activatedByPayment: sub.previousActivatedByPayment,
+      },
+      $unset: { previousPlanId: '', previousEndDate: '', previousActivatedByPayment: '', downgradedAt: '' },
     },
-    { upsert: true, new: true },
+    { new: true },
   );
+
+  logger.info(`Abonnement restauré sans paiement pour ${userId} vers ${plan.code} jusqu'au ${sub.previousEndDate.toISOString()}`);
+  return updated;
 }
 
 /**

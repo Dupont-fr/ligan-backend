@@ -10,9 +10,14 @@ const subscriptionSchema = new Schema(
     planId: { type: Schema.Types.ObjectId, ref: 'Plan', required: true },
     status: { type: String, enum: SUBSCRIPTION_STATUSES, default: 'ACTIVE', index: true },
     startDate: { type: Date, required: true },
-    /** Absent (undefined) = illimité — plan FREE. */
+    /** Absence (undefined) = illimité — plan FREE. */
     endDate: { type: Date, default: undefined },
     activatedByPayment: { type: Schema.Types.ObjectId, ref: 'Payment', default: undefined },
+    /** Sauvegarde pour permettre la restauration d'un abonnement payant encore valide. */
+    previousPlanId: { type: Schema.Types.ObjectId, ref: 'Plan', default: undefined },
+    previousEndDate: { type: Date, default: undefined },
+    previousActivatedByPayment: { type: Schema.Types.ObjectId, ref: 'Payment', default: undefined },
+    downgradedAt: { type: Date, default: undefined },
   },
   { timestamps: true },
 );

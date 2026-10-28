@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Payment, type PaymentDoc } from '../../models/Payment.js';
 import { Plan, toPublicPlan } from '../../models/Plan.js';
-import { toPublicSubscription } from '../../models/Subscription.js';
+import { Subscription, toPublicSubscription } from '../../models/Subscription.js';
 import { User } from '../../models/User.js';
 import {
   ProviderError,
@@ -12,6 +12,7 @@ import {
   isPaymentMock,
   listUserPayments,
   resolvePlan,
+  restorePreviousSubscription,
 } from '../../services/payments/index.js';
 import { logger } from '../../utils/logger.js';
 import { success } from '../../utils/ApiResponse.js';
@@ -22,6 +23,12 @@ export async function mySubscription(req: Request, res: Response) {
   const userId = String(req.user?.id);
   const { plan, code, subscription } = await resolvePlan(userId);
   const entries = await listUserPayments(userId);
+
+  const subDoc = await Subscription.findOne({ userId });
+  const hasPreviousPaid =
+    subDoc && subDoc.previousPlanId && subDoc.previousEndDate && new Date(subDoc.previousEndDate).getTime() > Date.now()
+      ? true
+      : false;
 
   return success(res, {
     plan: plan ? toPublicPlan(plan) : null,
@@ -39,6 +46,8 @@ export async function mySubscription(req: Request, res: Response) {
       createdAt: payment.createdAt,
     })),
     mock: isPaymentMock(),
+    canRestore: hasPreviousPaid,
+    previousPlanEndsAt: hasPreviousPaid ? subDoc?.previousEndDate : null,
   });
 }
 
@@ -56,6 +65,17 @@ export async function checkout(req: Request, res: Response) {
   }
   if (plan.price <= 0) {
     throw new AppError('Le plan FREE est déjà inclus : aucun paiement requis', 422);
+  }
+
+  const restored = await restorePreviousSubscription(userId);
+  if (restored) {
+    const { plan: restoredPlan, code, subscription } = await resolvePlan(userId);
+    return success(res, {
+      restored: true,
+      plan: restoredPlan ? toPublicPlan(restoredPlan) : null,
+      planCode: code,
+      subscription: subscription ? toPublicSubscription(subscription) : null,
+    });
   }
 
   const provider = getPaymentProvider();
