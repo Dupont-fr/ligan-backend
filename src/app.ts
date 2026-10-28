@@ -11,6 +11,7 @@ import type { NextFunction, Request } from 'express';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import activitiesRoutes from './modules/activities/routes.js';
 import adminRoutes from './modules/admin/routes.js';
+import aiRoutes from './modules/ai/routes.js';
 import analyticsRoutes from './modules/analytics/routes.js';
 import authRoutes from './modules/auth/routes.js';
 import businessesRoutes from './modules/businesses/routes.js';
@@ -96,6 +97,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/solicitations', solicitationsRoutes);
+app.use('/api/ai', aiRoutes);
 // Plans publics + abonnements pro + webhook paiements (Sprint 12)
 app.use('/api/plans', plansRoutes);
 app.use('/api/contact', contactRoutes);

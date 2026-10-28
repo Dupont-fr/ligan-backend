@@ -54,6 +54,9 @@ const env = {
     password: required('ADMIN_PASSWORD', ''),
     bootstrapToken: required('BOOTSTRAP_TOKEN', ''),
   },
+  ai: {
+    apiKey: process.env.AI_API_KEY || process.env.GEMINI_API_KEY || '',
+  },
   payment: {
     sebpayPublicKey: required('SEBPAY_PUBLIC_KEY', ''),
     sebpaySecretKey: required('SEBPAY_SECRET_KEY', ''),
