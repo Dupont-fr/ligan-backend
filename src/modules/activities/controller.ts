@@ -3,6 +3,7 @@ import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, generateUniqueSlug, toPublicActivity } from '../../models/Activity.js';
 import { success } from '../../utils/ApiResponse.js';
 import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
+import { resolvePlan } from '../../services/payments/index.js';
 import type { ActivityBodyInput, ListActivitiesInput } from './validator.js';
 
 async function findOwnActivity(id: string, userId: string) {
@@ -94,12 +95,37 @@ export async function createActivity(req: Request, res: Response) {
     throw new AppError('Authentification requise', 401);
   }
 
+  const { code } = await resolvePlan(userId);
+  if (code === 'FREE') {
+    const count = await Activity.countDocuments({ professionalId: userId });
+    if (count >= 2) {
+      throw new AppError(
+        "Vous avez atteint la limite de 2 activités gratuites. Passez en Pro ou Premium pour créer plus d'activités.",
+        403,
+      );
+    }
+  }
+
   const input = req.validBody as ActivityBodyInput;
   const activity = await Activity.create({
     professionalId: userId,
     slug: await generateUniqueSlug(input.title),
     ...buildFields(input),
   });
+
+  if (code === 'FREE') {
+    const countAfter = await Activity.countDocuments({ professionalId: userId });
+    const remaining = Math.max(0, 2 - countAfter);
+    return success(
+      res,
+      {
+        activity: toPublicActivity(activity),
+        freeActivityLimit: { used: countAfter, max: 2, remaining },
+        warning: remaining === 1 ? 'Il ne vous reste plus qu\'1 activité gratuite.' : undefined,
+      },
+      201,
+    );
+  }
 
   return success(res, { activity: toPublicActivity(activity) }, 201);
 }
