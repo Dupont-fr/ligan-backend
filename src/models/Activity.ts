@@ -64,6 +64,8 @@ const activitySchema = new Schema(
     moderationReason: { type: String, trim: true, maxlength: 500, default: undefined },
     moderatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: undefined },
     moderatedAt: { type: Date, default: undefined },
+    /** Créée via le générateur IA */
+    createdViaAi: { type: Boolean, default: false, index: true },
     /** Point GeoJSON [longitude, latitude] — champ absent si position inconnue (index 2dsphere). */
     geo: {
       type: new Schema(

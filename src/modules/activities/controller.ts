@@ -96,9 +96,18 @@ export async function createActivity(req: Request, res: Response) {
   }
 
   const { code } = await resolvePlan(userId);
+  const createdViaAi = (req.body as any)?.createdViaAi === true || (req.body as any)?.createdViaAi === 'true';
   if (code === 'FREE') {
     const count = await Activity.countDocuments({ professionalId: userId });
-    if (count >= 2) {
+    if (createdViaAi) {
+      const aiCount = await Activity.countDocuments({ professionalId: userId, createdViaAi: true });
+      if (aiCount >= 2) {
+        throw new AppError(
+          "Vous avez atteint la limite de 2 activités gratuites avec l'IA. Passez en Pro ou Premium pour continuer.",
+          403,
+        );
+      }
+    } else if (count >= 2) {
       throw new AppError(
         "Vous avez atteint la limite de 2 activités gratuites. Passez en Pro ou Premium pour créer plus d'activités.",
         403,
@@ -110,18 +119,33 @@ export async function createActivity(req: Request, res: Response) {
   const activity = await Activity.create({
     professionalId: userId,
     slug: await generateUniqueSlug(input.title),
+    createdViaAi: code === 'FREE' ? createdViaAi : false,
     ...buildFields(input),
   });
 
   if (code === 'FREE') {
     const countAfter = await Activity.countDocuments({ professionalId: userId });
     const remaining = Math.max(0, 2 - countAfter);
+    if (createdViaAi) {
+      const aiCountAfter = await Activity.countDocuments({ professionalId: userId, createdViaAi: true });
+      const aiRemaining = Math.max(0, 2 - aiCountAfter);
+      return success(
+        res,
+        {
+          activity: toPublicActivity(activity),
+          freeActivityLimit: { used: countAfter, max: 2, remaining },
+          freeAiLimit: { used: aiCountAfter, max: 2, remaining: aiRemaining },
+          warning: aiRemaining === 1 ? "Il ne vous reste plus qu'1 activité gratuite avec l'IA." : undefined,
+        },
+        201,
+      );
+    }
     return success(
       res,
       {
         activity: toPublicActivity(activity),
         freeActivityLimit: { used: countAfter, max: 2, remaining },
-        warning: remaining === 1 ? 'Il ne vous reste plus qu\'1 activité gratuite.' : undefined,
+        warning: remaining === 1 ? "Il ne vous reste plus qu'1 activité gratuite." : undefined,
       },
       201,
     );
