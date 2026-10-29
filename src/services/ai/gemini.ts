@@ -41,15 +41,27 @@ export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Pr
 
 export async function generateActivityFromPrompt(sujet: string) {
   const prompt = `Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication.
-Format: {"titre": string, "description": string, "services": string[], "tags": string[]}
+Format: {"titre": string, "description": string, "services": string[]}
 Sujet: ${sujet}`;
 
-  const raw = await callGemini(prompt);
-  const cleaned = raw.replace(/```json|```/g, '').trim();
   try {
+    const raw = await callGemini(prompt, 'gemini-2.5-flash');
+    const cleaned = raw.replace(/```json|```/g, '').trim();
     return JSON.parse(cleaned);
-  } catch (err) {
-    logger.error(`Échec parsing Gemini: ${raw.slice(0, 200)}`);
-    throw new Error('Réponse IA invalide');
+  } catch (err1) {
+    try {
+      const raw = await callGemini(prompt, 'gemini-2.5-flash-lite');
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch (err2) {
+      try {
+        const raw = await callGemini(prompt, 'gemini-1.5-flash');
+        const cleaned = raw.replace(/```json|```/g, '').trim();
+        return JSON.parse(cleaned);
+      } catch (err) {
+        logger.error(`Échec génération/parsing Gemini: ${err instanceof Error ? err.message : err}`);
+        throw new Error(err instanceof Error ? err.message : 'Réponse IA invalide');
+      }
+    }
   }
 }
