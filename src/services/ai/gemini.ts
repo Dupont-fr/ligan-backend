@@ -45,17 +45,17 @@ Format: {"titre": string, "description": string, "services": string[]}
 Sujet: ${sujet}`;
 
   try {
-    const raw = await callGemini(prompt, 'gemini-2.5-flash');
+    const raw = await callGemini(prompt, 'gemini-2.5-flash-lite');
     const cleaned = raw.replace(/```json|```/g, '').trim();
     return JSON.parse(cleaned);
   } catch (err1) {
     try {
-      const raw = await callGemini(prompt, 'gemini-2.5-flash-lite');
+      const raw = await callGemini(prompt, 'gemini-2.5-flash');
       const cleaned = raw.replace(/```json|```/g, '').trim();
       return JSON.parse(cleaned);
     } catch (err2) {
       try {
-        const raw = await callGemini(prompt, 'gemini-2.5-flash-preview-05-20');
+        const raw = await callGemini(prompt, 'gemini-2.0-flash');
         const cleaned = raw.replace(/```json|```/g, '').trim();
         return JSON.parse(cleaned);
       } catch (err) {
