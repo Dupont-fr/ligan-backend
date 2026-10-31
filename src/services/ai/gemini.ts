@@ -3,6 +3,9 @@ import { logger } from '../../utils/logger.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// Modèles valides au 31/10/2026 - 2.0-flash est arrêté depuis le 01/06/2026
+const MODELS_FALLBACK = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
+
 export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Promise<string> {
   const key = process.env.AI_API_KEY || (env as any).ai?.apiKey;
   if (!key) throw new Error('AI_API_KEY manquante');
@@ -23,11 +26,12 @@ export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Pr
 
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error(`Gemini ${res.status}: ${txt.slice(0, 150)}`);
+      throw new Error(`Gemini ${res.status} [${model}]: ${txt.slice(0, 500)}`);
     }
 
     const data = (await res.json()) as any;
     const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ?? '';
+    if (!text.trim()) throw new Error(`Réponse vide de ${model}`);
     return String(text).trim();
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
@@ -44,24 +48,23 @@ export async function generateActivityFromPrompt(sujet: string) {
 Format: {"titre": string, "description": string, "services": string[]}
 Sujet: ${sujet}`;
 
-  try {
-    const raw = await callGemini(prompt, 'gemini-2.5-flash-lite');
-    const cleaned = raw.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleaned);
-  } catch (err1) {
+  let lastError: unknown = null;
+
+  for (const model of MODELS_FALLBACK) {
     try {
-      const raw = await callGemini(prompt, 'gemini-2.5-flash');
+      const raw = await callGemini(prompt, model);
       const cleaned = raw.replace(/```json|```/g, '').trim();
       return JSON.parse(cleaned);
-    } catch (err2) {
-      try {
-        const raw = await callGemini(prompt, 'gemini-2.0-flash');
-        const cleaned = raw.replace(/```json|```/g, '').trim();
-        return JSON.parse(cleaned);
-      } catch (err) {
-        logger.error(`Échec génération/parsing Gemini: ${err instanceof Error ? err.message : err}`);
-        throw new Error(err instanceof Error ? err.message : 'Réponse IA invalide');
-      }
+    } catch (err) {
+      lastError = err;
+      logger.error(`Échec avec ${model}: ${err instanceof Error ? err.message : err}`);
+      // Ne pas réessayer sur erreur de clé manquante
+      if (err instanceof Error && err.message.includes('AI_API_KEY')) throw err;
     }
   }
+
+  logger.error(
+    `Échec génération/parsing Gemini: ${lastError instanceof Error ? lastError.message : lastError}`,
+  );
+  throw new Error(lastError instanceof Error ? lastError.message : 'Réponse IA invalide');
 }
