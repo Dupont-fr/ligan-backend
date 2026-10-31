@@ -55,7 +55,7 @@ Sujet: ${sujet}`;
       return JSON.parse(cleaned);
     } catch (err2) {
       try {
-        const raw = await callGemini(prompt, 'gemini-1.5-flash');
+        const raw = await callGemini(prompt, 'gemini-2.0-flash');
         const cleaned = raw.replace(/```json|```/g, '').trim();
         return JSON.parse(cleaned);
       } catch (err) {
