@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, generateUniqueSlug, toPublicActivity } from '../../models/Activity.js';
 import { Subscription } from '../../models/Subscription.js';
+import { User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
 import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
 import { resolvePlan } from '../../services/payments/index.js';
@@ -96,23 +97,33 @@ export async function createActivity(req: Request, res: Response) {
     throw new AppError('Authentification requise', 401);
   }
 
-  let planCode: 'FREE' | 'PRO' | 'PREMIUM' = 'FREE';
+  const user = await User.findById(userId).select('role');
+  let planCode: 'FREE' | 'PRO' | 'PREMIUM' = user?.role === 'PROFESSIONAL' ? 'PRO' : 'FREE';
+
   try {
     const resolved = await resolvePlan(userId);
     if (resolved?.code === 'PRO') planCode = 'PRO';
     else if (resolved?.code === 'PREMIUM') planCode = 'PREMIUM';
-    else planCode = 'FREE';
+    else if (resolved?.code === 'FREE') {
+      if (user?.role === 'PROFESSIONAL') {
+        planCode = 'PRO';
+      } else {
+        planCode = 'FREE';
+      }
+    }
   } catch {
-    planCode = 'FREE';
+    if (user?.role !== 'PROFESSIONAL') planCode = 'FREE';
+    else planCode = 'PRO';
   }
 
-  if (planCode === 'FREE') {
-    const sub = await Subscription.findOne({ userId, status: 'ACTIVE' })
-      .populate('planId')
-      .sort({ createdAt: -1 });
-    const subPlan = (sub?.planId as any)?.code;
-    if (subPlan === 'PRO') planCode = 'PRO';
-    else if (subPlan === 'PREMIUM') planCode = 'PREMIUM';
+  const activeSub = await Subscription.findOne({ userId, status: 'ACTIVE' })
+    .populate('planId')
+    .sort({ createdAt: -1 });
+  const subPlanCode = (activeSub?.planId as any)?.code;
+  if (subPlanCode === 'PREMIUM') planCode = 'PREMIUM';
+  else if (subPlanCode === 'PRO') planCode = 'PRO';
+  else if (subPlanCode === 'FREE') {
+    if (user?.role !== 'PROFESSIONAL') planCode = 'FREE';
   }
 
   const createdViaAi = (req.body as any)?.createdViaAi === true || (req.body as any)?.createdViaAi === 'true';
