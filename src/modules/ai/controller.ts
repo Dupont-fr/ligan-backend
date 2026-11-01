@@ -14,54 +14,40 @@ export async function generateActivityDraft(req: Request, res: Response) {
     throw new AppError('Réservé aux professionnels', 403);
   }
 
-  let isProPremium = user.role === 'PROFESSIONAL';
+  let planCode: 'FREE' | 'PRO' | 'PREMIUM' = 'FREE';
+
   try {
-    const { code } = await resolvePlan(String(user._id));
-    if (code === 'FREE') {
-      const aiCount = await Activity.countDocuments({ professionalId: user._id, createdViaAi: true });
-      if (aiCount >= 2) {
-        throw new AppError(
-          "Vous avez déjà utilisé vos 2 créations gratuites avec l'IA. Passez en Pro ou Premium pour continuer.",
-          403,
-        );
-      }
-      isProPremium = false;
-    } else if (code === 'PRO' || code === 'PREMIUM') {
-      isProPremium = true;
-    } else {
-      const sub = await Subscription.findOne({ userId: user._id, status: 'ACTIVE' })
-        .populate('planId')
-        .sort({ createdAt: -1 });
-      const plan = (sub?.planId as any)?.code;
-      if (plan === 'PRO' || plan === 'PREMIUM') {
-        isProPremium = true;
-      } else {
-        // Si c'est un professionnel avec un abonnement actif, autoriser quand même
-        if (!isProPremium) {
-          throw new AppError("Générateur IA disponible uniquement avec un abonnement Pro ou Premium.", 403);
-        }
-      }
-    }
-  } catch (err) {
-    if (err instanceof AppError) throw err;
-    // En cas d'erreur de résolution, si c'est un professionnel on autorise
-    if (!isProPremium) {
-      throw new AppError("Générateur IA disponible uniquement avec un abonnement Pro ou Premium.", 403);
+    const resolved = await resolvePlan(String(user._id));
+    if (resolved?.code === 'PRO') planCode = 'PRO';
+    else if (resolved?.code === 'PREMIUM') planCode = 'PREMIUM';
+    else planCode = 'FREE';
+  } catch {
+    planCode = 'FREE';
+  }
+
+  if (planCode === 'FREE') {
+    const sub = await Subscription.findOne({ userId: user._id, status: 'ACTIVE' })
+      .populate('planId')
+      .sort({ createdAt: -1 });
+    const subPlan = (sub?.planId as any)?.code;
+    if (subPlan === 'PRO') planCode = 'PRO';
+    else if (subPlan === 'PREMIUM') planCode = 'PREMIUM';
+  }
+
+  if (planCode === 'FREE') {
+    const aiCount = await Activity.countDocuments({ professionalId: user._id, createdViaAi: true });
+    if (aiCount >= 2) {
+      throw new AppError(
+        "Vous avez déjà utilisé vos 2 créations gratuites avec l'IA. Passez en Pro ou Premium pour continuer.",
+        403,
+      );
     }
   }
 
   const input = req.validBody as GenerateActivityInput;
   try {
-    const planCode = isProPremium ? undefined : 'FREE';
-    // Déterminer le code plan pour l'affichage
-    let effectiveCode: string | undefined = undefined;
-    if (!isProPremium) {
-      effectiveCode = 'FREE';
-    } else {
-      effectiveCode = 'PRO';
-    }
     const draft = await generateActivityFromPrompt(input.prompt);
-    if (effectiveCode === 'FREE') {
+    if (planCode === 'FREE') {
       const aiCount = await Activity.countDocuments({ professionalId: user._id, createdViaAi: true });
       const remaining = Math.max(0, 2 - aiCount);
       return success(res, {
