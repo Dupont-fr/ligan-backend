@@ -52,8 +52,16 @@ export async function generateActivityDraft(req: Request, res: Response) {
 
   const input = req.validBody as GenerateActivityInput;
   try {
+    const planCode = isProPremium ? undefined : 'FREE';
+    // Déterminer le code plan pour l'affichage
+    let effectiveCode: string | undefined = undefined;
+    if (!isProPremium) {
+      effectiveCode = 'FREE';
+    } else {
+      effectiveCode = 'PRO';
+    }
     const draft = await generateActivityFromPrompt(input.prompt);
-    if (code === 'FREE') {
+    if (effectiveCode === 'FREE') {
       const aiCount = await Activity.countDocuments({ professionalId: user._id, createdViaAi: true });
       const remaining = Math.max(0, 2 - aiCount);
       return success(res, {
