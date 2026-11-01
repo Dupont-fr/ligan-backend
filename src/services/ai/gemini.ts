@@ -3,8 +3,8 @@ import { logger } from '../../utils/logger.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-// Modèles valides au 31/10/2026 - 2.0-flash est arrêté depuis le 01/06/2026
-const MODELS_FALLBACK = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
+// Modèles valides selon la clé API actuelle
+const MODELS_FALLBACK = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'] as const;
 
 export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Promise<string> {
   const key = process.env.AI_API_KEY || (env as any).ai?.apiKey;

@@ -23,11 +23,8 @@ export async function generateActivityDraft(req: Request, res: Response) {
         403,
       );
     }
-    if (aiCount === 1) {
-      // Laisser passer mais on signale côté logique ; le frontend alerte déjà
-    }
-  } else if (code !== 'PRO' && code !== 'PREMIUM') {
-    throw new AppError("Générateur IA disponible uniquement avec un abonnement Pro ou Premium.", 403);
+  } else if (code === 'PRO' || code === 'PREMIUM') {
+    // Autorisé
   } else {
     const sub = await Subscription.findOne({ userId: user._id, status: 'ACTIVE' })
       .populate('planId')
