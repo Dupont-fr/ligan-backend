@@ -4,7 +4,7 @@ import { logger } from '../../utils/logger.js';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // Modèles valides selon la clé API actuelle
-const MODELS_FALLBACK = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'] as const;
+const MODELS_FALLBACK = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'] as const;
 
 export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Promise<string> {
   const key = process.env.AI_API_KEY || (env as any).ai?.apiKey;
