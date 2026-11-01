@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, generateUniqueSlug, toPublicActivity } from '../../models/Activity.js';
+import { Subscription } from '../../models/Subscription.js';
 import { success } from '../../utils/ApiResponse.js';
 import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
 import { resolvePlan } from '../../services/payments/index.js';
@@ -95,9 +96,27 @@ export async function createActivity(req: Request, res: Response) {
     throw new AppError('Authentification requise', 401);
   }
 
-  const { code } = await resolvePlan(userId);
+  let planCode: 'FREE' | 'PRO' | 'PREMIUM' = 'FREE';
+  try {
+    const resolved = await resolvePlan(userId);
+    if (resolved?.code === 'PRO') planCode = 'PRO';
+    else if (resolved?.code === 'PREMIUM') planCode = 'PREMIUM';
+    else planCode = 'FREE';
+  } catch {
+    planCode = 'FREE';
+  }
+
+  if (planCode === 'FREE') {
+    const sub = await Subscription.findOne({ userId, status: 'ACTIVE' })
+      .populate('planId')
+      .sort({ createdAt: -1 });
+    const subPlan = (sub?.planId as any)?.code;
+    if (subPlan === 'PRO') planCode = 'PRO';
+    else if (subPlan === 'PREMIUM') planCode = 'PREMIUM';
+  }
+
   const createdViaAi = (req.body as any)?.createdViaAi === true || (req.body as any)?.createdViaAi === 'true';
-  if (code === 'FREE') {
+  if (planCode === 'FREE') {
     const count = await Activity.countDocuments({ professionalId: userId });
     if (createdViaAi) {
       const aiCount = await Activity.countDocuments({ professionalId: userId, createdViaAi: true });
@@ -119,11 +138,11 @@ export async function createActivity(req: Request, res: Response) {
   const activity = await Activity.create({
     professionalId: userId,
     slug: await generateUniqueSlug(input.title),
-    createdViaAi: code === 'FREE' ? createdViaAi : false,
+    createdViaAi: planCode === 'FREE' ? createdViaAi : false,
     ...buildFields(input),
   });
 
-  if (code === 'FREE') {
+  if (planCode === 'FREE') {
     const countAfter = await Activity.countDocuments({ professionalId: userId });
     const remaining = Math.max(0, 2 - countAfter);
     if (createdViaAi) {
