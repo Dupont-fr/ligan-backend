@@ -44,11 +44,11 @@ export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Pr
 }
 
 export async function generateActivityFromPrompt(sujet: string) {
-  const prompt = `Tu es un rédacteur marketing spécialisé dans les petites entreprises et prestataires de services en Afrique francophone (Cameroun).
+  const prompt = `Tu es un copywriter marketing spécialisé dans les TPE/PME et prestataires de services en Afrique francophone (Cameroun).
 
 Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication, sans backticks.
 
-Format strict attendu:
+Format strict:
 {
   "titre": string,
   "description": string,
@@ -58,13 +58,13 @@ Format strict attendu:
   "keywords": string[]
 }
 
-Consignes:
-- Titre accrocheur, clair et optimisé pour le référencement local
-- Description marketing longue (80-150 mots minimum). Mets en avant les bénéfices client, l'expérience, la qualité, la zone d'intervention si mentionnée, et un appel à l'action naturel
-- Catégorie la plus pertinente parmi : RESTAURANT, COIFFURE_BEAUTE, SANTE, COMMERCE, TRANSPORT, EDUCATION_FORMATION, HOTELLERIE_TOURISME, EVENEMENTIEL, IMMOBILIER, SERVICES_PROFESSIONNELS, AGRICULTURE, AUTRE
-- Services: 3 à 6 services concrets et vendeurs (évite les termes vagues)
-- Horaires: si le sujet précise des horaires/jours/ouvertures/fermetures, propose des créneaux réalistes. Sinon laisse un tableau vide []
-- Si le sujet mentionne des mots-clés, intègre-les naturellement
+Règles impératives:
+- Titre: court, accrocheur et orienté recherche locale (max 60 caractères)
+- Description: OBLIGATOIREMENT entre 120 et 200 mots, à ton marketing. Mets en avant les bénéfices clients, la qualité du service, l'expérience, la zone d'intervention si précisée, les atouts différenciants. Termine par un appel à l'action naturel (ex. "Faites appel à nous pour...")
+- Catégorie: choisis UNIQUEMENT la plus pertinente parmi: RESTAURANT, COIFFURE_BEAUTE, SANTE, COMMERCE, TRANSPORT, EDUCATION_FORMATION, HOTELLERIE_TOURISME, EVENEMENTIEL, IMMOBILIER, SERVICES_PROFESSIONNELS, AGRICULTURE, AUTRE
+- Services: 4 à 6 services concrets, précis et vendeurs (ex. "Coupe homme + barbe", "Réparation fuites sanitaires"). Évite "Divers", "Autres services".
+- Horaires: SI le sujet indique des jours/horaires/ouvertures/fermetures, génère des créneaux réalistes pour CHAQUE jour mentionné. Pour les jours non ouverts, utilise {"closed": true}. Utilise le format 24h HH:mm. Si aucun horaire n'est précisé, renvoie []
+- Sois concret, adapté au marché camerounais, évite le blabla générique
 
 Sujet: ${sujet}`;
 
