@@ -44,8 +44,28 @@ export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Pr
 }
 
 export async function generateActivityFromPrompt(sujet: string) {
-  const prompt = `Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication.
-Format: {"titre": string, "description": string, "services": string[]}
+  const prompt = `Tu es un rédacteur marketing spécialisé dans les petites entreprises et prestataires de services en Afrique francophone (Cameroun).
+
+Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication, sans backticks.
+
+Format strict attendu:
+{
+  "titre": string,
+  "description": string,
+  "category": string,
+  "services": string[],
+  "openingHours": [{"day": "MON"|"TUE"|"WED"|"THU"|"FRI"|"SAT"|"SUN", "open": "HH:mm", "close": "HH:mm", "closed": false}] | [],
+  "keywords": string[]
+}
+
+Consignes:
+- Titre accrocheur, clair et optimisé pour le référencement local
+- Description marketing longue (80-150 mots minimum). Mets en avant les bénéfices client, l'expérience, la qualité, la zone d'intervention si mentionnée, et un appel à l'action naturel
+- Catégorie la plus pertinente parmi : RESTAURANT, COIFFURE_BEAUTE, SANTE, COMMERCE, TRANSPORT, EDUCATION_FORMATION, HOTELLERIE_TOURISME, EVENEMENTIEL, IMMOBILIER, SERVICES_PROFESSIONNELS, AGRICULTURE, AUTRE
+- Services: 3 à 6 services concrets et vendeurs (évite les termes vagues)
+- Horaires: si le sujet précise des horaires/jours/ouvertures/fermetures, propose des créneaux réalistes. Sinon laisse un tableau vide []
+- Si le sujet mentionne des mots-clés, intègre-les naturellement
+
 Sujet: ${sujet}`;
 
   let lastError: unknown = null;
