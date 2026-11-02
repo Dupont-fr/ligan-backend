@@ -59,6 +59,8 @@ export async function checkout(req: Request, res: Response) {
   const userId = String(req.user?.id);
   const input = req.validBody as CheckoutInput;
 
+  logger.info(`CHECKOUT ATTEMPT user=${userId} planId=${input.planId} network=${input.network} phone=${input.phoneNumber}`);
+
   const plan = await Plan.findOne({ _id: input.planId, isActive: true });
   if (!plan) {
     throw new AppError('Plan introuvable', 404);
@@ -91,6 +93,7 @@ export async function checkout(req: Request, res: Response) {
   let providerLink: string | undefined;
   try {
     const user = await User.findById(userId).select('firstName lastName email');
+    logger.info(`CHECKOUT CALLING PROVIDER provider=${provider.name} network=${input.network}`);
     const result = await provider.createTransaction({
       amount: plan.price,
       reference: String(payment._id),
