@@ -65,48 +65,32 @@ export async function listOperators(): Promise<PaymentOperator[]> {
   try {
     const data = await fetchSebPayOperators();
     if (data.length > 0) {
-      const mtnGroup: PaymentOperator[] = [];
-      const orangeGroup: PaymentOperator[] = [];
-      const others: PaymentOperator[] = [];
-
-      for (const op of data) {
-        const slug = (op.slug || '').toLowerCase();
-        const name = (op.name || '').toLowerCase();
-        if (slug.includes('mtn') || name.includes('mtn')) {
-          mtnGroup.push(op);
-        } else if (slug.includes('orange') || name.includes('orange')) {
-          orangeGroup.push(op);
-        } else {
-          others.push(op);
-        }
-      }
-
+      // Déduplication simple sans modifier les slugs
       const merged: PaymentOperator[] = [];
-      if (mtnGroup.length > 0) {
-        const orig = mtnGroup[0];
-        merged.push({
-          slug: orig.slug,
-          name: 'MTN MoMo',
-          otpRequired: mtnGroup.some((o) => o.otpRequired) || orig.otpRequired,
-          ussdCode: mtnGroup.find((o) => o.ussdCode)?.ussdCode ?? orig.ussdCode ?? null,
-        });
-      } else {
+      const seen = new Set<string>();
+      for (const op of data) {
+        const key = (op.slug || op.name || '').toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(op);
+      }
+      // S'assurer qu'on a bien MTN et Orange si absents
+      const hasMtn = merged.some((op) => {
+        const s = (op.slug || '').toLowerCase();
+        const n = (op.name || '').toLowerCase();
+        return s.includes('mtn') || n.includes('mtn');
+      });
+      const hasOrange = merged.some((op) => {
+        const s = (op.slug || '').toLowerCase();
+        const n = (op.name || '').toLowerCase();
+        return s.includes('orange') || n.includes('orange');
+      });
+      if (!hasMtn) {
         merged.push({ slug: 'mtn', name: 'MTN MoMo', otpRequired: false, ussdCode: null });
       }
-
-      if (orangeGroup.length > 0) {
-        const orig = orangeGroup[0];
-        merged.push({
-          slug: orig.slug,
-          name: 'Orange Money',
-          otpRequired: orangeGroup.some((o) => o.otpRequired) || orig.otpRequired,
-          ussdCode: orangeGroup.find((o) => o.ussdCode)?.ussdCode ?? orig.ussdCode ?? null,
-        });
-      } else {
+      if (!hasOrange) {
         merged.push({ slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null });
       }
-
-      merged.push(...others);
       operatorsCache = { at: Date.now(), data: merged };
       return merged;
     }
