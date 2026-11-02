@@ -65,12 +65,18 @@ export async function listOperators(): Promise<PaymentOperator[]> {
   try {
     const data = await fetchSebPayOperators();
     if (data.length > 0) {
-      const merged = [...data];
-      const slugs = new Set(merged.map((op) => op.slug.toLowerCase()));
-      if (!slugs.has('orange')) {
+      const merged: PaymentOperator[] = [];
+      const seen = new Set<string>();
+      for (const op of data) {
+        const key = op.slug.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(op);
+      }
+      if (!seen.has('orange')) {
         merged.push({ slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null });
       }
-      if (!slugs.has('mtn')) {
+      if (!seen.has('mtn')) {
         merged.push({ slug: 'mtn', name: 'MTN MoMo', otpRequired: false, ussdCode: null });
       }
       operatorsCache = { at: Date.now(), data: merged };
