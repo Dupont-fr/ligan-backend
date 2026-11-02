@@ -83,22 +83,24 @@ export async function listOperators(): Promise<PaymentOperator[]> {
 
       const merged: PaymentOperator[] = [];
       if (mtnGroup.length > 0) {
+        const orig = mtnGroup[0];
         merged.push({
-          slug: 'mtn',
+          slug: orig.slug,
           name: 'MTN MoMo',
-          otpRequired: mtnGroup.some((o) => o.otpRequired),
-          ussdCode: mtnGroup.find((o) => o.ussdCode)?.ussdCode ?? null,
+          otpRequired: mtnGroup.some((o) => o.otpRequired) || orig.otpRequired,
+          ussdCode: mtnGroup.find((o) => o.ussdCode)?.ussdCode ?? orig.ussdCode ?? null,
         });
       } else {
         merged.push({ slug: 'mtn', name: 'MTN MoMo', otpRequired: false, ussdCode: null });
       }
 
       if (orangeGroup.length > 0) {
+        const orig = orangeGroup[0];
         merged.push({
-          slug: 'orange',
+          slug: orig.slug,
           name: 'Orange Money',
-          otpRequired: orangeGroup.some((o) => o.otpRequired),
-          ussdCode: orangeGroup.find((o) => o.ussdCode)?.ussdCode ?? null,
+          otpRequired: orangeGroup.some((o) => o.otpRequired) || orig.otpRequired,
+          ussdCode: orangeGroup.find((o) => o.ussdCode)?.ussdCode ?? orig.ussdCode ?? null,
         });
       } else {
         merged.push({ slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null });
