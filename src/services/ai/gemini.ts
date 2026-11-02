@@ -35,7 +35,7 @@ export async function callGemini(prompt: string, model = 'gemini-2.5-flash'): Pr
     return String(text).trim();
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error("Délai d'attente dépassé lors de la génération IA");
+      throw new Error("Délai d'attente dépassé lors de la génération IA", { cause: err });
     }
     throw err;
   } finally {
