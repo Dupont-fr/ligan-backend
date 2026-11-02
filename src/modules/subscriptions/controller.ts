@@ -112,6 +112,7 @@ export async function checkout(req: Request, res: Response) {
       await applyPaymentResult(payment, result.status);
     }
   } catch (err) {
+    logger.error(`CHECKOUT ERROR for payment ${String(payment._id)} network=${input.network}: ${(err as Error)?.stack || err}`);
     payment.status = 'FAILED';
     payment.failureReason =
       err instanceof Error ? err.message.slice(0, 300) : 'échec de l\'initialisation du paiement';
