@@ -65,20 +65,46 @@ export async function listOperators(): Promise<PaymentOperator[]> {
   try {
     const data = await fetchSebPayOperators();
     if (data.length > 0) {
-      const merged: PaymentOperator[] = [];
-      const seen = new Set<string>();
+      const mtnGroup: PaymentOperator[] = [];
+      const orangeGroup: PaymentOperator[] = [];
+      const others: PaymentOperator[] = [];
+
       for (const op of data) {
-        const key = op.slug.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        merged.push(op);
+        const slug = (op.slug || '').toLowerCase();
+        const name = (op.name || '').toLowerCase();
+        if (slug.includes('mtn') || name.includes('mtn')) {
+          mtnGroup.push(op);
+        } else if (slug.includes('orange') || name.includes('orange')) {
+          orangeGroup.push(op);
+        } else {
+          others.push(op);
+        }
       }
-      if (!seen.has('orange')) {
-        merged.push({ slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null });
-      }
-      if (!seen.has('mtn')) {
+
+      const merged: PaymentOperator[] = [];
+      if (mtnGroup.length > 0) {
+        merged.push({
+          slug: 'mtn',
+          name: 'MTN MoMo',
+          otpRequired: mtnGroup.some((o) => o.otpRequired),
+          ussdCode: mtnGroup.find((o) => o.ussdCode)?.ussdCode ?? null,
+        });
+      } else {
         merged.push({ slug: 'mtn', name: 'MTN MoMo', otpRequired: false, ussdCode: null });
       }
+
+      if (orangeGroup.length > 0) {
+        merged.push({
+          slug: 'orange',
+          name: 'Orange Money',
+          otpRequired: orangeGroup.some((o) => o.otpRequired),
+          ussdCode: orangeGroup.find((o) => o.ussdCode)?.ussdCode ?? null,
+        });
+      } else {
+        merged.push({ slug: 'orange', name: 'Orange Money', otpRequired: false, ussdCode: null });
+      }
+
+      merged.push(...others);
       operatorsCache = { at: Date.now(), data: merged };
       return merged;
     }
