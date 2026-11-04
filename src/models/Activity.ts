@@ -4,7 +4,7 @@ import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mong
 export const OPENING_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 export type OpeningDay = (typeof OPENING_DAYS)[number];
 
-export const ACTIVITY_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as const;
+export const ACTIVITY_STATUSES = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as const;
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 
 const serviceSchema = new Schema(
