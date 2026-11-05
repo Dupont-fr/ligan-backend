@@ -61,7 +61,7 @@ export function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: str
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td align="center">
-                      <span style="display:inline-block;width:40px;height:40px;line-height:40px;background-color:${COLOR_TEXT};border-radius:10px;color:#ffffff;font-size:20px;font-weight:900;font-style:italic;text-align:center">L<span style="font-size:155%;color:${BRAND_RED}">+</span></span>
+                      <img src="${env.frontendUrl}/logo-mark.png" alt="LIGAN+" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:10px;border:1px solid rgba(0,0,0,0.08)" />
                       <div style="font-size:18px;font-weight:900;font-style:italic;color:${COLOR_TEXT};margin-top:8px;letter-spacing:-0.5px">LIGAN<span style="font-size:155%;color:${BRAND_RED}">+</span></div>
                     </td>
                   </tr>
@@ -262,3 +262,70 @@ export async function sendContactEmail(input: {
     return false;
   }
 }
+
+export async function sendCampaignEmail(input: {
+  to: string;
+  subject: string;
+  preheader?: string;
+  bodyHtml: string;
+  bodyText: string;
+}): Promise<boolean> {
+  const { apiKey, user, from, fromName, disabled } = env.email;
+
+  if (disabled || !apiKey) {
+    logger.info(`(DEV) Email campagne « ${input.subject} » à destination de ${input.to}`);
+    console.log(`${input.bodyText}\n`);
+    return false;
+  }
+
+  const sender = from && from.includes('@') ? from : user;
+  const preheader = input.preheader || input.subject;
+  const { html, text } = frame({ to: input.to, subject: input.subject, preheader, bodyHtml: input.bodyHtml, bodyText: input.bodyText });
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: sender },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Brevo API ${response.status}: ${body}`);
+    }
+
+    logger.info(`Email campagne envoyé à ${input.to} : ${input.subject}`);
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'erreur inconnue';
+    logger.error(`Échec d'envoi d'email campagne à ${input.to} : ${message}`);
+    return false;
+  }
+}
+
+export function buildCampaignBody(content: string): { html: string; text: string } {
+  const escaped = content.replace(/\r\n/g, '\n');
+  const paragraphs = escaped
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const htmlParts = paragraphs
+    .map((p) => {
+      const withBreaks = p.replace(/\n/g, '<br />');
+      return `<p style="margin:0 0 16px;font-size:15px;color:${COLOR_TEXT_SECONDARY};line-height:1.7">${withBreaks}</p>`;
+    })
+    .join('');
+  const text = escaped.replace(/\n/g, '\n');
+  return { html: htmlParts, text };
+}
+

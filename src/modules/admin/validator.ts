@@ -142,3 +142,24 @@ export const paymentsHealthSchema = z.object({
   hours: z.coerce.number().int().min(1).max(24 * 30).default(24),
 });
 export type AdminPaymentsHealthInput = z.infer<typeof paymentsHealthSchema>;
+
+export const generateEmailCampaignSchema = z.object({
+  concept: z.string().trim().min(5, 'Le concept doit contenir au moins 5 caractères').max(1000),
+});
+
+export type GenerateEmailCampaignInput = z.infer<typeof generateEmailCampaignSchema>;
+
+export const bulkSendEmailCampaignSchema = z.object({
+  subject: z.string().trim().min(3).max(200),
+  preheader: z.string().trim().max(200).optional(),
+  body: z.string().trim().min(10),
+  recipientType: z.enum(['ALL', 'BY_ROLE', 'MANUAL']),
+  recipientRoles: z.array(z.enum(['CUSTOMER', 'PROFESSIONAL', 'ADMIN'])).optional(),
+  recipientUserIds: z.array(z.string().trim().regex(objectIdRegex)).optional(),
+  testEmail: z.string().trim().email().optional(),
+  sendTestOnly: z.boolean().optional(),
+  confirmBulk: z.boolean().optional(),
+});
+
+export type BulkSendEmailCampaignInput = z.infer<typeof bulkSendEmailCampaignSchema>;
+

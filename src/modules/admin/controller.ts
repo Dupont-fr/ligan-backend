@@ -4,6 +4,7 @@ import type { FilterQuery } from 'mongoose';
 import { AppError } from '../../middlewares/errorHandler.js';
 import { Activity, toPublicActivity, type ActivityDocument, type ActivityStatus } from '../../models/Activity.js';
 import { Category } from '../../models/Category.js';
+import { EmailCampaign } from '../../models/EmailCampaign.js';
 import { Payment, type PaymentDocument } from '../../models/Payment.js';
 import { Plan, toPublicPlan } from '../../models/Plan.js';
 import { Review, toPublicReview, type ReviewDocument, type ReviewStatus } from '../../models/Review.js';
@@ -11,12 +12,16 @@ import { Solicitation } from '../../models/Solicitation.js';
 import { toPublicUser, User } from '../../models/User.js';
 import { paginated, success } from '../../utils/ApiResponse.js';
 import { logger } from '../../utils/logger.js';
+import { buildCampaignBody, sendCampaignEmail } from '../../services/email.js';
+import { generateEmailCampaign } from '../../services/ai/gemini.js';
 import type {
   AdminActivitiesInput,
   AdminPaymentsHealthInput,
   AdminPaymentsInput,
   AdminReviewsInput,
+  BulkSendEmailCampaignInput,
   CreateUserInput,
+  GenerateEmailCampaignInput,
   SetActivityStatusInput,
   SetReviewStatusInput,
   SuspendUserInput,
@@ -633,3 +638,118 @@ export async function adminPaymentsHealth(req: Request, res: Response) {
     lastSuccess: lastSuccess[0] ? toAdminPayment(lastSuccess[0] as never) : null,
   });
 }
+
+export async function generateEmailCampaignAI(req: Request, res: Response) {
+  const input = req.validBody as GenerateEmailCampaignInput;
+  const result = await generateEmailCampaign(input.concept);
+  return success(res, {
+    email: {
+      subject: result.subject,
+      preheader: result.preheader,
+      body: result.body,
+    },
+  });
+}
+
+export async function bulkSendEmailCampaign(req: Request, res: Response) {
+  const input = req.validBody as BulkSendEmailCampaignInput;
+  const adminId = req.user?.id;
+
+  if (!adminId) {
+    throw new AppError('Non autorisé', 401);
+  }
+
+  if (input.sendTestOnly && input.testEmail) {
+    const { html, text } = buildCampaignBody(input.body);
+    const ok = await sendCampaignEmail({
+      to: input.testEmail,
+      subject: input.subject,
+      preheader: input.preheader,
+      bodyHtml: html,
+      bodyText: text,
+    });
+    if (!ok) {
+      throw new AppError("Échec d'envoi du test. Vérifiez la configuration email.", 502);
+    }
+    return success(res, { message: "Email de test envoyé avec succès", test: true });
+  }
+
+  if (!input.confirmBulk) {
+    throw new AppError('Confirmation requise pour l\'envoi en masse', 400);
+  }
+
+  const filter: FilterQuery<any> = { suspendedAt: { $exists: false } };
+  if (input.recipientType === 'BY_ROLE' && input.recipientRoles && input.recipientRoles.length > 0) {
+    filter.role = { $in: input.recipientRoles };
+  } else if (input.recipientType === 'MANUAL' && input.recipientUserIds && input.recipientUserIds.length > 0) {
+    filter._id = { $in: input.recipientUserIds };
+  }
+  // ALL = tous les utilisateurs non suspendus
+
+  const users = await User.find(filter).select('email firstName lastName');
+  if (users.length === 0) {
+    throw new AppError('Aucun destinataire trouvé', 404);
+  }
+
+  const { html, text } = buildCampaignBody(input.body);
+  const campaign = await EmailCampaign.create({
+    subject: input.subject,
+    preheader: input.preheader,
+    bodyHtml: html,
+    bodyText: text,
+    recipientType: input.recipientType,
+    recipientRoles: input.recipientRoles || [],
+    recipientUserIds: input.recipientUserIds || [],
+    status: 'SENDING',
+    createdBy: adminId,
+    totalCount: users.length,
+  });
+
+  let sentCount = 0;
+  let failedCount = 0;
+  // Envoi séquentiel pour éviter le throttling
+  for (const user of users) {
+    try {
+      let personalizedHtml = html;
+      let personalizedText = text;
+      if (user.firstName) {
+        const firstName = user.firstName;
+        personalizedHtml = personalizedHtml.replace(/{{\s*firstName\s*}}/gi, firstName);
+        personalizedText = personalizedText.replace(/{{\s*firstName\s*}}/gi, firstName);
+      } else {
+        personalizedHtml = personalizedHtml.replace(/{{\s*firstName\s*}}/gi, '');
+        personalizedText = personalizedText.replace(/{{\s*firstName\s*}}/gi, '');
+      }
+      const ok = await sendCampaignEmail({
+        to: user.email,
+        subject: input.subject,
+        preheader: input.preheader,
+        bodyHtml: personalizedHtml,
+        bodyText: personalizedText,
+      });
+      if (ok) sentCount += 1;
+      else failedCount += 1;
+    } catch {
+      failedCount += 1;
+    }
+  }
+
+  campaign.status = failedCount === users.length ? 'FAILED' : 'SENT';
+  campaign.sentCount = sentCount;
+  campaign.failedCount = failedCount;
+  campaign.sentAt = new Date();
+  if (failedCount > 0 && failedCount === users.length) {
+    campaign.lastError = "Échec d'envoi pour tous les destinataires";
+  }
+  await campaign.save();
+
+  logger.info(`Campagne email envoyée par ${adminId} : ${sentCount}/${users.length} envoyés`);
+
+  return success(res, {
+    message: `Campagne envoyée (${sentCount} réussi(s), ${failedCount} échec(s))`,
+    sentCount,
+    failedCount,
+    totalCount: users.length,
+  });
+}
+

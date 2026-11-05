@@ -4,8 +4,10 @@ import { validate } from '../../middlewares/validate.js';
 import {
   adminPaymentsHealth,
   adminStats,
+  bulkSendEmailCampaign,
   createUser,
   deleteUser,
+  generateEmailCampaignAI,
   listAdminActivities,
   listAdminPayments,
   listAdminPlans,
@@ -18,7 +20,9 @@ import {
   updateUser,
 } from './controller.js';
 import {
+  bulkSendEmailCampaignSchema,
   createUserSchema,
+  generateEmailCampaignSchema,
   idParamSchema,
   listActivitiesSchema,
   listPaymentsSchema,
@@ -55,5 +59,9 @@ router.patch('/plans/:id', validate(idParamSchema, 'params'), validate(updatePla
 // Paiements (diagnostic SebPay)
 router.get('/payments', validate(listPaymentsSchema, 'query'), listAdminPayments);
 router.get('/payments/health', validate(paymentsHealthSchema, 'query'), adminPaymentsHealth);
+
+// Campagnes email
+router.post('/emails/ai-generate', validate(generateEmailCampaignSchema), generateEmailCampaignAI);
+router.post('/emails/bulk-send', validate(bulkSendEmailCampaignSchema), bulkSendEmailCampaign);
 
 export default router;

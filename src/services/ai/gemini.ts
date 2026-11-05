@@ -88,3 +88,46 @@ Sujet: ${sujet}`;
   );
   throw new Error(lastError instanceof Error ? lastError.message : 'Réponse IA invalide');
 }
+
+export async function generateEmailCampaign(concept: string) {
+  const prompt = `Tu es un rédacteur email marketing spécialisé pour la plateforme LIGAN+ (découverte de professionnels locaux au Cameroun).
+
+Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication, sans backticks.
+
+Format strict attendu:
+{
+  "subject": string,
+  "preheader": string,
+  "body": string
+}
+
+Consignes:
+- Subject: accrocheur, court (max 60 caractères), adapté aux emails
+- Preheader: texte court pour l'aperçu (max 100 caractères)
+- Body: contenu de l'email en français, chaleureux et professionnel. Structure claire avec paragraphes. Inclure un appel à l'action si pertinent. Longueur raisonnable (4-8 paragraphes max). Utilise un ton adapté au public camerounais francophone.
+- Personnalise avec {{firstName}} quand c'est naturel (ex: "Bonjour {{firstName}},")
+- N'invente pas de liens complets avec domaine inconnu, privilégie des appels à l'action génériques
+- Reste concis et efficace
+
+Concept: ${concept}`;
+
+  let lastError: unknown = null;
+
+  for (const model of MODELS_FALLBACK) {
+    try {
+      const raw = await callGemini(prompt, model);
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch (err) {
+      lastError = err;
+      logger.error(`Échec avec ${model}: ${err instanceof Error ? err.message : err}`);
+      if (err instanceof Error && err.message.includes('AI_API_KEY')) throw err;
+    }
+  }
+
+  logger.error(
+    `Échec génération/parsing Gemini: ${lastError instanceof Error ? lastError.message : lastError}`,
+  );
+  throw new Error(lastError instanceof Error ? lastError.message : 'Réponse IA invalide');
+}
+
