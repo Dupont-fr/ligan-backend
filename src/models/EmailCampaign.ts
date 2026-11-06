@@ -1,4 +1,4 @@
-import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
+import { Schema, model, type InferSchemaType } from 'mongoose';
 
 export const EMAIL_CAMPAIGN_STATUS = ['DRAFT', 'SENT', 'SENDING', 'FAILED'] as const;
 export type EmailCampaignStatus = (typeof EMAIL_CAMPAIGN_STATUS)[number];
