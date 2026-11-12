@@ -4,15 +4,23 @@ import { validate } from '../../middlewares/validate.js';
 import {
   createActivity,
   deleteActivity,
+  feedByCategory,
   listActivities,
   listMyActivities,
   updateActivity,
 } from './controller.js';
-import { createActivitySchema, idParamSchema, listActivitiesSchema, updateActivitySchema } from './validator.js';
+import {
+  createActivitySchema,
+  feedByCategorySchema,
+  idParamSchema,
+  listActivitiesSchema,
+  updateActivitySchema,
+} from './validator.js';
 
 const router = Router();
 
 router.get('/', validate(listActivitiesSchema, 'query'), listActivities);
+router.get('/feed', validate(feedByCategorySchema, 'query'), feedByCategory);
 router.get('/mine', requireAuth, requireRole('PROFESSIONAL'), listMyActivities);
 router.post('/', requireAuth, requireRole('PROFESSIONAL'), validate(createActivitySchema), createActivity);
 router.patch(

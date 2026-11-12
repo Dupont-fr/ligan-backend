@@ -4,9 +4,10 @@ import { Activity, generateUniqueSlug, toPublicActivity } from '../../models/Act
 import { Subscription } from '../../models/Subscription.js';
 import { User } from '../../models/User.js';
 import { success } from '../../utils/ApiResponse.js';
+import { COLLATION, enrichStages, type SearchRow } from '../../utils/activityEnrichment.js';
 import { deletePhotoFile, filenameFromUrl } from '../../utils/photos.js';
 import { resolvePlan } from '../../services/payments/index.js';
-import type { ActivityBodyInput, ListActivitiesInput } from './validator.js';
+import type { ActivityBodyInput, FeedByCategoryInput, ListActivitiesInput } from './validator.js';
 
 async function findOwnActivity(id: string, userId: string) {
   const activity = await Activity.findById(id);
@@ -42,6 +43,61 @@ export async function listActivities(req: Request, res: Response) {
     .populate('professionalId', 'firstName lastName');
 
   return success(res, { activities: activities.map((a) => toPublicActivity(a)) });
+}
+
+/**
+ * Fil d'activité groupé par catégorie.
+ * - Les catégories sont triées par activité la plus récente (publier une activité
+ *   remonte sa catégorie en tête).
+ * - Dans chaque catégorie, les activités Premium passent devant (rank), puis les
+ *   plus récentes.
+ */
+export async function feedByCategory(req: Request, res: Response) {
+  const { limit } = (req.validQuery ?? {}) as FeedByCategoryInput;
+
+  const groups = await Activity.aggregate<{ _id: string; count: number; lastCreatedAt: Date }>(
+    [
+      { $match: { status: 'APPROVED' } },
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          lastCreatedAt: { $max: '$createdAt' },
+        },
+      },
+      { $sort: { lastCreatedAt: -1, _id: 1 } },
+    ],
+    { collation: COLLATION },
+  );
+
+  const now = new Date();
+  const rows = await Promise.all(
+    groups.map(async (g) => {
+      const docs = (await Activity.aggregate(
+        [
+          { $match: { status: 'APPROVED', category: g._id } },
+          ...enrichStages(now),
+          // Premium d'abord (rank), puis par date de publication.
+          { $sort: { rank: -1, createdAt: -1 } },
+          { $limit: limit },
+          { $project: { proOwner: 0, subPlan: 0, rank: 0 } },
+        ],
+        { collation: COLLATION },
+      )) as SearchRow[];
+
+      return {
+        category: String(g._id),
+        count: g.count,
+        items: docs.map((row) => ({
+          ...toPublicActivity(row),
+          isVerified: row.isVerified === true,
+          planCode: row.planCode ?? 'FREE',
+        })),
+      };
+    }),
+  );
+
+  return success(res, { rows });
 }
 
 export async function listMyActivities(req: Request, res: Response) {

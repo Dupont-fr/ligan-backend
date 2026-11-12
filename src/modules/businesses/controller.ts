@@ -5,6 +5,7 @@ import { Activity, toPublicActivity, type ActivityDocument } from '../../models/
 import { Review, toPublicReview } from '../../models/Review.js';
 import { User } from '../../models/User.js';
 import { resolvePlan } from '../../services/payments/index.js';
+import { COLLATION, enrichStages, type SearchRow } from '../../utils/activityEnrichment.js';
 import { success } from '../../utils/ApiResponse.js';
 import type { BusinessSearchInput, BusinessSlugParam } from './validator.js';
 
@@ -69,17 +70,7 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-type SearchRow = ActivityDocument & {
-  _id: unknown;
-  distance?: number;
-  isVerified?: boolean;
-  planCode?: string;
-  rank?: number;
-};
-
 const DAY_BY_GETDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
-/** Tri/match insensibles à la casse et aux accents. */
-const COLLATION = { locale: 'fr', strength: 2 } as const;
 
 function toMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -99,60 +90,6 @@ function isOpenAt(row: ActivityDocument): boolean {
   return minutes >= open && minutes < close;
 }
 
-/**
- * Enrichissement Sprint 14 « Premium et visibilité » : owner vérifié
- * (filtre `verified` optionnel) + plan effectif de l'abonnement
- * (FREE/PRO/PREMIUM) calculé à la volée + `rank` pour le boost.
- */
-function enrichStages(now: Date, verified?: boolean): PipelineStage[] {
-  return [
-    { $lookup: { from: 'users', localField: 'professionalId', foreignField: '_id', as: 'proOwner' } },
-    ...(verified !== undefined ? [{ $match: { 'proOwner.isVerified': verified } } as PipelineStage.Match] : []),
-    {
-      $lookup: {
-        from: 'subscriptions',
-        let: { proId: '$professionalId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$userId', '$$proId'] },
-                  { $eq: ['$status', 'ACTIVE'] },
-                  { $or: [{ $eq: ['$endDate', null] }, { $gt: ['$endDate', now] }] },
-                ],
-              },
-            },
-          },
-          { $lookup: { from: 'plans', localField: 'planId', foreignField: '_id', as: 'planDoc' } },
-          { $unwind: { path: '$planDoc', preserveNullAndEmptyArrays: true } },
-          { $project: { _id: 0, code: '$planDoc.code' } },
-        ],
-        as: 'subPlan',
-      },
-    },
-    {
-      $addFields: {
-        isVerified: { $arrayElemAt: ['$proOwner.isVerified', 0] },
-        planCode: { $arrayElemAt: ['$subPlan.code', 0] },
-      },
-    },
-    {
-      $addFields: {
-        // Position prioritaire : PREMIUM > PRO > FREE (triées ensuite sur `rank`).
-        rank: {
-          $switch: {
-            branches: [
-              { case: { $eq: ['$planCode', 'PREMIUM'] }, then: 2 },
-              { case: { $eq: ['$planCode', 'PRO'] }, then: 1 },
-            ],
-            default: 0,
-          },
-        },
-      },
-    },
-  ];
-}
 
 /**
  * Rangées « activités récentes » de la landing : les 2 catégories comptant

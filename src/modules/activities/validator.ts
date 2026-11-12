@@ -95,6 +95,12 @@ export const listActivitiesSchema = z.object({
 });
 export type ListActivitiesInput = z.infer<typeof listActivitiesSchema>;
 
+/** Fil d'activité groupé par catégorie : nombre d'activités affichées par catégorie. */
+export const feedByCategorySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(12),
+});
+export type FeedByCategoryInput = z.infer<typeof feedByCategorySchema>;
+
 export const idParamSchema = z.object({
   id: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, 'Identifiant invalide'),
 });
