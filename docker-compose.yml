@@ -1,0 +1,40 @@
+# =============================================================================
+# docker-compose.yml — backend LIGAN+
+# Permet de lancer le conteneur en une commande : docker compose up
+# (equivalent a un "docker run" mais tout est decrit dans ce fichier)
+# =============================================================================
+services:
+  api:
+    # Construit l'image depuis le Dockerfile de ce dossier.
+    build: .
+    image: ligan-backend:latest
+    container_name: ligan-backend
+
+    # Charge les variables d'environnement depuis le fichier .env
+    # (MONGODB_URI, JWT_SECRET, BREVO_API_KEY, etc.).
+    env_file:
+      - .env
+
+    # Publie le port : "port_de_ta_machine:port_dans_le_conteneur"
+    ports:
+      - "5000:5000"
+
+    # DNS utilises par le conteneur (Cloudflare).
+    # Necessaire car le DNS de ta connexion (PdaNet / 8.8.8.8) est bloque.
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    # Force le DNS en TCP : indispensable ici car ta connexion altere les
+    # reponses DNS en UDP (erreur "EBADRESP" lors de la connexion MongoDB Atlas).
+    dns_opt:
+      - use-vc
+
+    # Volume nomme : les photos uploadees survivent aux redemarrages/suppressions.
+    volumes:
+      - uploads:/app/uploads
+
+    # Redemarre automatiquement le conteneur (sauf si on l'arrete a la main).
+    restart: unless-stopped
+
+volumes:
+  uploads:
