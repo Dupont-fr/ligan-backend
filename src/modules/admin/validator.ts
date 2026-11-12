@@ -163,3 +163,10 @@ export const bulkSendEmailCampaignSchema = z.object({
 
 export type BulkSendEmailCampaignInput = z.infer<typeof bulkSendEmailCampaignSchema>;
 
+export const listEmailCampaignsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export type ListEmailCampaignsInput = z.infer<typeof listEmailCampaignsSchema>;
+

@@ -12,6 +12,7 @@ import {
   listAdminPayments,
   listAdminPlans,
   listAdminReviews,
+  listEmailCampaigns,
   listUsers,
   setActivityStatus,
   setReviewStatus,
@@ -25,6 +26,7 @@ import {
   generateEmailCampaignSchema,
   idParamSchema,
   listActivitiesSchema,
+  listEmailCampaignsSchema,
   listPaymentsSchema,
   listReviewsSchema,
   paymentsHealthSchema,
@@ -63,5 +65,6 @@ router.get('/payments/health', validate(paymentsHealthSchema, 'query'), adminPay
 // Campagnes email
 router.post('/emails/ai-generate', validate(generateEmailCampaignSchema), generateEmailCampaignAI);
 router.post('/emails/bulk-send', validate(bulkSendEmailCampaignSchema), bulkSendEmailCampaign);
+router.get('/emails/campaigns', validate(listEmailCampaignsSchema, 'query'), listEmailCampaigns);
 
 export default router;

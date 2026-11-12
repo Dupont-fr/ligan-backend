@@ -22,6 +22,7 @@ import type {
   BulkSendEmailCampaignInput,
   CreateUserInput,
   GenerateEmailCampaignInput,
+  ListEmailCampaignsInput,
   SetActivityStatusInput,
   SetReviewStatusInput,
   SuspendUserInput,
@@ -750,6 +751,50 @@ export async function bulkSendEmailCampaign(req: Request, res: Response) {
     sentCount,
     failedCount,
     totalCount: users.length,
+  });
+}
+
+export async function listEmailCampaigns(req: Request, res: Response) {
+  const { page, limit } = req.validQuery as ListEmailCampaignsInput;
+  const skip = (page - 1) * limit;
+
+  const [campaigns, total] = await Promise.all([
+    EmailCampaign.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('createdBy', 'firstName lastName'),
+    EmailCampaign.countDocuments(),
+  ]);
+
+  const items = campaigns.map((c) => {
+    const author = c.createdBy as unknown as
+      | { _id: unknown; firstName?: string; lastName?: string }
+      | null;
+    return {
+      id: c._id.toString(),
+      subject: c.subject,
+      preheader: c.preheader ?? '',
+      recipientType: c.recipientType,
+      recipientRoles: c.recipientRoles ?? [],
+      status: c.status,
+      sentCount: c.sentCount,
+      failedCount: c.failedCount,
+      totalCount: c.totalCount,
+      lastError: c.lastError ?? null,
+      sentAt: c.sentAt ? c.sentAt.toISOString() : null,
+      createdAt: c.createdAt.toISOString(),
+      createdBy: author
+        ? { id: String(author._id), firstName: author.firstName, lastName: author.lastName }
+        : null,
+    };
+  });
+
+  return success(res, {
+    campaigns: items,
+    total,
+    page,
+    pages: Math.max(1, Math.ceil(total / limit)),
   });
 }
 
