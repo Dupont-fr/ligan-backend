@@ -85,7 +85,7 @@ export function frame({ preheader, bodyHtml, bodyText }: MailInput): { html: str
               <td align="center" style="padding:20px 12px 0">
                 <p style="margin:0;font-size:12px;color:${COLOR_TEXT_MUTED};line-height:1.6">
                   © 2026 ${env.appName} — Trouvez les professionnels près de vous.<br />
-                  Vous recevez cet email dans le cadre de la gestion de votre compte. Si ce n'est pas vous, ignorez ce message.
+                  Vous recevez cet email dans le cadre de la gestion de votre compte. Si ce n'est pas vous, ignorez ce message !!.
                 </p>
               </td>
             </tr>
